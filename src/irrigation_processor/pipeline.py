@@ -8,8 +8,19 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 import xarray as xr
 
 
-STEP_REGISTRY: Dict[str, "StepMeta"] = {}
+class StepRegistry:
+    def __init__(self):
+        self._steps = {}
 
+    def register(self, step_meta: "StepMeta"):
+        if step_meta.name in self._steps:
+            raise KeyError(f"A step named '{step_meta.name}' is already registered")
+        self._steps[step_meta.name] = step_meta
+
+    def all(self):
+        return list(self._steps.values())
+#
+# STEP_REGISTRY = StepRegistry()
 
 @dataclass
 class FromTask:
@@ -45,36 +56,42 @@ class StepMeta:
                 f"outputs={self.outputs}, depends_on={self.depends_on})")
 
 
-class step:
+class Step:
     def __init__(
         self,
+
+    ):
+        self.step_registry = StepRegistry()
+
+    def get_registry(self):
+        return self.step_registry
+
+    def register(
+        self,
+        func: Optional[Callable] = None,
+        /,
         *,
         inputs: Iterable = (),
         outputs: Iterable[str] = (),
         depends_on: Iterable[str] = (),
         name: Optional[str] = None,
         context_cls: Optional[type] = None,
-    ):
-        self.inputs = tuple(inputs)
-        self.outputs = tuple(outputs)
-        self.depends_on = tuple(depends_on)
-        self.name = name
-        self.context_cls = context_cls
+    ) -> Callable:
+        def decorator(f: Callable) -> Callable:
+            meta = StepMeta(
+                func=f,
+                inputs=inputs,
+                outputs=outputs,
+                depends_on=depends_on,
+                name=name,
+                context_cls=context_cls,
+            )
+            self.step_registry.register(meta)
+            return f
 
-    def __call__(self, func: Callable) -> Callable:
-        meta = StepMeta(
-            func=func,
-            inputs=self.inputs,
-            outputs=self.outputs,
-            depends_on=self.depends_on,
-            name=self.name,
-            context_cls=self.context_cls,
-        )
-        if meta.name in STEP_REGISTRY:
-            raise KeyError(f"A step named '{meta.name}' is already registered")
-        STEP_REGISTRY[meta.name] = meta
-
-        return func
+        if func is None:
+            return decorator
+        return decorator(func)
 
 
 class Storage(abc.ABC):
@@ -109,7 +126,6 @@ class FileStorage(Storage):
 
         if xr is not None and isinstance(obj, (xr.Dataset, xr.DataArray)):
             fn = self._filename_for_key(key, ".nc")
-            # xarray will choose an engine if available
             obj.to_zarr(fn)
             return {"inline": False, "path": str(fn), "format": "netcdf", "type": type(obj).__name__}
 
@@ -148,6 +164,7 @@ class InlineService(Service):
         for step_name in order:
             step_meta = steps[step_name]
             print(f"Running step: {step_name}")
+            print("meta", step_meta)
 
             resolved_args, resolved_kwargs = self._resolve_inputs(step_name,
                                                                   step_meta,
@@ -227,12 +244,15 @@ class Pipeline:
             raise KeyError(f"step {step_meta.name} already added")
         self.steps[step_meta.name] = step_meta
 
-    def add_steps_from_registry(self, names: Optional[Iterable[str]] = None):
-        names = names if names is not None else list(STEP_REGISTRY.keys())
-        for n in names:
-            if n not in STEP_REGISTRY:
-                raise KeyError(f"No step named {n} in registry")
-            self.add(STEP_REGISTRY[n])
+    def add_steps_from_registry(self, registry: StepRegistry):
+        # names = names if names is not None else list(STEP_REGISTRY.keys())
+        # for n in names:
+        #     if n not in STEP_REGISTRY:
+        #         raise KeyError(f"No step named {n} in registry")
+        #     self.add(STEP_REGISTRY[n])
+        registry = registry
+        for meta in registry.all():
+            self.add(meta)
 
     def _build_graph(self) -> Dict[str, List[str]]:
         deps: Dict[str, List[str]] = {name: [] for name in self.steps}
