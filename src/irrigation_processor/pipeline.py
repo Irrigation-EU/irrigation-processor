@@ -247,13 +247,13 @@ class LocalService(Service):
         return stored_map
 
 
-class AirflowService(LocalService):
-    def run(self, order, steps):
-        """
-        dag_id = gen_dags(order, steps)
-        result = trigger_dag(dag_id)
-        return result
-        """
+# class AirflowService(LocalService):
+#     def run(self, order, steps):
+#         """
+#         dag_id = gen_dags(order, steps)
+#         result = trigger_dag(dag_id)
+#         return result
+#         """
 
 
 class Pipeline:
@@ -267,11 +267,6 @@ class Pipeline:
         self.steps[step_meta.name] = step_meta
 
     def add_steps_from_registry(self, registry: StepRegistry):
-        # names = names if names is not None else list(STEP_REGISTRY.keys())
-        # for n in names:
-        #     if n not in STEP_REGISTRY:
-        #         raise KeyError(f"No step named {n} in registry")
-        #     self.add(STEP_REGISTRY[n])
         registry = registry
         for meta in registry.all():
             self.add(meta)
