@@ -5,6 +5,7 @@ from src.irrigation_processor.steps import step
 
 registry = step.get_registry()
 
+# TODO:  Use Storage for xcube data store
 storage = FileStorage("./pipeline_storage")
 service = LocalService(storage=storage)
 p = Pipeline(service=service)
