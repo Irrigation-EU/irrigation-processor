@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
-
 import xarray as xr
 
 
@@ -19,8 +18,11 @@ class StepRegistry:
 
     def all(self):
         return list(self._steps.values())
+
+
 #
 # STEP_REGISTRY = StepRegistry()
+
 
 @dataclass
 class FromTask:
@@ -36,7 +38,7 @@ class StepMeta:
     def __init__(
         self,
         func: Callable,
-        inputs: Iterable = (),
+        inputs: Iterable[str] = (),
         outputs: Iterable[str] = (),
         depends_on: Iterable[str] = (),
         name: Optional[str] = None,
@@ -51,15 +53,16 @@ class StepMeta:
         self.context_cls = context_cls
 
     def __repr__(self):
-        return (f"StepMeta(name={self.name}, func={self.func}, "
-                f"func_path={self.func_path}, inputs={self.inputs}, "
-                f"outputs={self.outputs}, depends_on={self.depends_on})")
+        return (
+            f"StepMeta(name={self.name}, func={self.func}, "
+            f"func_path={self.func_path}, inputs={self.inputs}, "
+            f"outputs={self.outputs}, depends_on={self.depends_on})"
+        )
 
 
 class Step:
     def __init__(
         self,
-
     ):
         self.step_registry = StepRegistry()
 
@@ -127,13 +130,23 @@ class FileStorage(Storage):
         if xr is not None and isinstance(obj, (xr.Dataset, xr.DataArray)):
             fn = self._filename_for_key(key, ".nc")
             obj.to_zarr(fn)
-            return {"inline": False, "path": str(fn), "format": "netcdf", "type": type(obj).__name__}
+            return {
+                "inline": False,
+                "path": str(fn),
+                "format": "netcdf",
+                "type": type(obj).__name__,
+            }
 
         # fallback: pickle everything else
         fn = self._filename_for_key(key, ".pkl")
         with open(fn, "wb") as f:
             pickle.dump(obj, f)
-        return {"inline": False, "path": str(fn), "format": "pickle", "type": type(obj).__name__}
+        return {
+            "inline": False,
+            "path": str(fn),
+            "format": "pickle",
+            "type": type(obj).__name__,
+        }
 
     def load(self, metadata: Dict[str, Any]) -> Any:
         if metadata.get("inline"):
@@ -158,20 +171,25 @@ class Service:
         """Execute steps in given order. Returns state with outputs."""
         raise NotImplementedError
 
-class InlineService(Service):
+
+class LocalService(Service):
     def run(self, order, steps):
-        print(":::::::InlineService:::::::")
+        print(":::::::LocalService:::::::")
         for step_name in order:
             step_meta = steps[step_name]
             print(f"Running step: {step_name}")
-            print("meta", step_meta)
 
-            resolved_args, resolved_kwargs = self._resolve_inputs(step_name,
-                                                                  step_meta,
-                                                                  self.storage,
-                                                                  )
+            resolved_args, resolved_kwargs = self._resolve_inputs(
+                step_name,
+                step_meta,
+                self.storage,
+            )
 
-            ctx = step_meta.context_cls(step_name=step_name) if step_meta.context_cls else None
+            ctx = (
+                step_meta.context_cls(step_name=step_name)
+                if step_meta.context_cls
+                else None
+            )
 
             result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
 
@@ -188,7 +206,9 @@ class InlineService(Service):
                 if isinstance(inp, FromTask):
                     s, k = inp.step, inp.key
                     if s not in self._state or k not in self._state[s]:
-                        raise KeyError(f"Missing output '{k}' from step '{s}' required by '{step_name}'")
+                        raise KeyError(
+                            f"Missing output '{k}' from step '{s}' required by '{step_name}'"
+                        )
                     resolved_args.append(storage.load(self._state[s][k]))
                 else:
                     resolved_args.append(inp)
@@ -197,7 +217,9 @@ class InlineService(Service):
                 if isinstance(inp, FromTask):
                     s, k = inp.step, inp.key
                     if s not in self._state or k not in self._state[s]:
-                        raise KeyError(f"Missing output '{k}' from step '{s}' required by '{step_name}'")
+                        raise KeyError(
+                            f"Missing output '{k}' from step '{s}' required by '{step_name}'"
+                        )
                     resolved_kwargs[name] = storage.load(self._state[s][k])
                 else:
                     resolved_kwargs[name] = inp
@@ -224,14 +246,14 @@ class InlineService(Service):
             stored_map[key] = self.storage.save(f"{step_name}/{key}", val)
         return stored_map
 
-class AirflowService(InlineService):
+
+class AirflowService(LocalService):
     def run(self, order, steps):
         """
         dag_id = gen_dags(order, steps)
         result = trigger_dag(dag_id)
         return result
         """
-
 
 
 class Pipeline:
@@ -282,7 +304,9 @@ class Pipeline:
                         ready.append(m)
         if len(out) != len(incoming):
             missing = set(incoming) - set(out)
-            raise RuntimeError(f"Cycle detected or missing dependencies; remaining: {missing}")
+            raise RuntimeError(
+                f"Cycle detected or missing dependencies; remaining: {missing}"
+            )
         return out
 
     def visualize_dot(self) -> str:
@@ -300,4 +324,3 @@ class Pipeline:
         deps = self._build_graph()
         order = Pipeline._toposort(deps)
         return self.service.run(order, self.steps)
-
