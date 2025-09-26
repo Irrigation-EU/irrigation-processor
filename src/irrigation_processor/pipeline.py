@@ -128,12 +128,12 @@ class FileStorage(Storage):
             return {"inline": True, "value": obj, "type": type(obj).__name__}
 
         if xr is not None and isinstance(obj, (xr.Dataset, xr.DataArray)):
-            fn = self._filename_for_key(key, ".nc")
+            fn = self._filename_for_key(key, ".zarr")
             obj.to_zarr(fn)
             return {
                 "inline": False,
                 "path": str(fn),
-                "format": "netcdf",
+                "format": "zarr",
                 "type": type(obj).__name__,
             }
 
