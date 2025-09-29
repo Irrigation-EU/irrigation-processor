@@ -17,6 +17,7 @@ from irrigation_processor.constants import (
     ERA5_DATA_ID,
     INPUT_DIR,
     INPUT_FOR_CALIBRATION_ID,
+    logger,
 )
 from irrigation_processor.steps import PreprocessorContext
 from irrigation_processor.utils import convert_m_to_mm
@@ -24,8 +25,16 @@ from irrigation_processor.utils import convert_m_to_mm
 
 store = new_data_store("file", root=INPUT_DIR)
 
-def irrigation_preprocessor(context: PreprocessorContext, sm_path, lc_path, era5_path):
-    print("irrigation preprocessor context", context)
+def irrigation_preprocessor(context: PreprocessorContext, sm_path, lc_path,
+                            era5_path) -> dict:
+    logger.info("irrigation preprocessor context...")
+
+    data_ids = store.list_data_ids()
+
+    if INPUT_FOR_CALIBRATION_ID in data_ids:
+        logger.info("Irrigation inputs are already preprocessed with "
+                    f"data_id: {INPUT_FOR_CALIBRATION_ID}")
+        return {"preprocessed_path": f"{INPUT_DIR}/{INPUT_FOR_CALIBRATION_ID}"}
 
     # TODO: Use the paths provided to create the store and data_ids
 
@@ -39,7 +48,7 @@ def irrigation_preprocessor(context: PreprocessorContext, sm_path, lc_path, era5
 
     merged_path = _merge(preprocessed_sm, preprocessed_lc, preprocessed_era5, gdf)
 
-    print("preprocessing complete...", merged_path)
+    logger.info(f"preprocessing complete...{merged_path}")
     return {"preprocessed_path": merged_path}
 
 def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
@@ -90,7 +99,7 @@ def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
     SWI = chunk_dataset(SWI, chunk_sizes={"time": -1, "lat": 128, "lon": 128})
 
     store.write_data(SWI.to_dataset(name="SWI"), PROCESSED_CLMS_DATA_ID)
-    print("preprocessed soil moisture...")
+    logger.info("preprocessed soil moisture...")
 
     return store.open_data(PROCESSED_CLMS_DATA_ID)
 
@@ -133,36 +142,31 @@ def _land_cover_preprocessor(context: PreprocessorContext) -> xr.Dataset:
     filtered_lc = lc_subset.lccs_class.where(lc_subset["lccs_class"].isin(keep_classes))
 
     keep_classes_np = np.array(keep_classes, dtype=filtered_lc.dtype)
-    print("preprocessed land cover...")
+    logger.info("preprocessed land cover...")
 
     return filtered_lc.isin(keep_classes_np).astype("uint8")
 
 
 def _era5_preprocessor(context: PreprocessorContext) -> xr.Dataset:
-    bbox = context.bbox
     cds_cube = store.open_data(ERA5_DATA_ID)
 
-    stl1_daily = cds_cube["stl1"].resample(time="1D").mean()
-    pev_daily = cds_cube["pev"].resample(time="1D").sum()
-    tp_daily = cds_cube["tp"].resample(time="1D").sum()
-    sf_daily = cds_cube["sf"].resample(time="1D").sum()
+    cds_cube["pev"] = cds_cube["pev"] * -1
 
-    cds_cube_daily = xr.merge([stl1_daily, pev_daily, tp_daily, sf_daily])
+    pev_daily = cds_cube["pev"].resample(time="1D").last()
+    tp_daily = cds_cube["tp"].resample(time="1D").last()
+
+    cds_cube_daily = xr.merge([pev_daily, tp_daily])
 
     cds_cube_daily["pev"] = convert_m_to_mm(cds_cube_daily["pev"])
     cds_cube_daily["tp"] = convert_m_to_mm(cds_cube_daily["tp"])
-    print("preprocessed era5...")
+    logger.info("preprocessed era5...")
 
     return cds_cube_daily
 
 
 def _merge(soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: GeoDataFrame) -> str:
-    print("merging...")
+    logger.info("merging...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
-
-    gm_cds = GridMapping.from_dataset(era5)
-
-    gm_lc = GridMapping.from_dataset(lc.to_dataset(name="lc_binary"))
 
     cds_in_gm_sm = resample_in_space(era5, target_gm=gm_sm)
     cds_in_gm_sm = cds_in_gm_sm.assign_coords(time=era5.time)
@@ -183,12 +187,13 @@ def _merge(soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: Geo
         soil_moisture_masked_full, gdf.geometry[0]
     )
 
-    soil_moisture_aligned = chunk_dataset(
+    soil_moisture_chunked = chunk_dataset(
         soil_moisture_masked, chunk_sizes={"time": -1, "lat": 128, "lon": 128}
     )
-    cds_aligned = chunk_dataset(cds_masked, chunk_sizes={"time": -1, "lat": 128, "lon": 128})
+    cds_chunked = chunk_dataset(cds_masked, chunk_sizes={
+        "time": -1, "lat": 128, "lon": 128})
 
-    ds_combined = xr.merge([soil_moisture_aligned, cds_aligned, lc_in_gm_sm])
+    ds_combined = xr.merge([soil_moisture_chunked, cds_chunked, lc_in_gm_sm])
 
     chunked_ds = chunk_dataset(
         ds_combined,

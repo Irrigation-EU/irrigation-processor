@@ -1,5 +1,9 @@
-def soil_moisture_inversion_calibration(context, path):
-    print("calibrating...", context, path)
+from irrigation_processor.constants import logger
+from irrigation_processor.steps import CalibratorContext
+
+
+def soil_moisture_inversion_calibration(context: CalibratorContext, input_path: str) -> dict:
+    logger.info(f"calibrating... {context} {input_path}")
     calibrated_path = "/path/to/calibrated_data"
-    print("calibration complete...", calibrated_path)
+    logger.info(f"calibration complete...{calibrated_path}")
     return {"calibrated_path": calibrated_path}

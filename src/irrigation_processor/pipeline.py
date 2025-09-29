@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 import xarray as xr
 
+from irrigation_processor.constants import logger
+
 
 class StepRegistry:
     def __init__(self):
@@ -174,10 +176,10 @@ class Service:
 
 class LocalService(Service):
     def run(self, order, steps):
-        print(":::::::LocalService:::::::")
+        logger.info(":::::::LocalService:::::::")
         for step_name in order:
             step_meta = steps[step_name]
-            print(f"Running step: {step_name}")
+            logger.info(f"Running step: {step_name}")
 
             resolved_args, resolved_kwargs = self._resolve_inputs(
                 step_name,
@@ -196,7 +198,7 @@ class LocalService(Service):
             out_map = self._normalize_outputs(step_name, step_meta, result)
             self._state[step_name] = out_map
 
-        print("Pipeline run completed.")
+        logger.info("Pipeline run completed.")
         return self._state
 
     def _resolve_inputs(self, step_name, meta, storage):
