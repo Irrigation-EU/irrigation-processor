@@ -9,6 +9,7 @@ from irrigation_processor.constants import (
     ERA5_DATA_ID,
     LC_DATA_ID,
     INPUT_DIR,
+    logger,
 )
 from irrigation_processor.steps import DataLoaderContext
 from irrigation_processor.utils import split_date_range
@@ -16,12 +17,12 @@ from irrigation_processor.utils import split_date_range
 store = new_data_store("file", root=INPUT_DIR)
 
 
-def load_data(context: DataLoaderContext):
-    print("loading data...", context)
+def load_data(context: DataLoaderContext) -> dict:
+    logger.info("loading data..." )
     era5_path = _get_cds_data(context)
     sm_path = _get_clms_data(context)
     lc_path = _get_lc_data(context)
-    print("data loaded...", sm_path, lc_path, era5_path)
+    logger.info(f"data loaded...{sm_path}, {lc_path}, {era5_path}")
     return {"sm_path": sm_path, "lc_path": lc_path, "era5_path": era5_path}
 
 
@@ -38,7 +39,6 @@ def _get_cds_data(context: DataLoaderContext) -> str:
 
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
-    print("time_ranges", time_ranges)
 
     era_store = new_data_store("file", root="era5")
     cds_store = new_data_store("cds", normalize_names=True)

@@ -15,10 +15,8 @@ class DataLoaderContext(BaseContext):
     lc_time: str = "2020-01-01"
     cds_data_id: str = "reanalysis-era5-land"
     cds_variables: tuple = (
-        "soil_temperature_level_1",
         "potential_evaporation",
         "total_precipitation",
-        "snowfall",
     )
     cds_spatial_res: float = 0.1
 
