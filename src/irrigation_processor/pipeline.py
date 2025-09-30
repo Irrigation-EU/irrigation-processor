@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 import xarray as xr
 
-from irrigation_processor.constants import logger
+from irrigation_processor.constants import logger, INPUT_DIR
 
 
 class StepRegistry:
@@ -102,11 +102,43 @@ class Step:
 class Storage(abc.ABC):
     @abc.abstractmethod
     def save(self, key: str, obj: Any) -> Dict[str, Any]:
-        """Save object and return metadata (e.g. where it was saved)."""
+        """Save object and return metadata (e.g. where it was saved).
+
+        This method must handle 2 cases:
+        1. Python literals - int, float, bool, dict, set, list
+        2. big data - xarray datasets, pandas dataframes etc.
+
+        The format to return must be a dict per key
+
+        inline = True means it is a Python literal
+        {
+                "inline": True,
+                "type": type(obj).__name__
+                "value": obj,
+        }
+
+        inline = False means it is big data
+
+        {
+                "inline": False,
+                "type": type(obj).__name__,
+                "path": "path-to-the-stored-big-data",
+                "format": "<your-format-name>",
+        }
+
+        This dict is not required to be followed strictly but just as a general
+        hint to use as this dict will be completely and only used in your
+        implementation of the Storage subclass.
+
+        """
 
     @abc.abstractmethod
     def load(self, metadata: Dict[str, Any]) -> Any:
-        """Load an object previously saved using the metadata returned by save."""
+        """Load an object previously saved using the metadata returned by save.
+
+        This method must handle the loading of the 3 cases as discussed in
+        save() method.
+        """
 
 
 class FileStorage(Storage):
@@ -129,7 +161,7 @@ class FileStorage(Storage):
         if isinstance(obj, (int, float, str, bool)):
             return {"inline": True, "value": obj, "type": type(obj).__name__}
 
-        if xr is not None and isinstance(obj, (xr.Dataset, xr.DataArray)):
+        if isinstance(obj, xr.Dataset):
             fn = self._filename_for_key(key, ".zarr")
             obj.to_zarr(fn)
             return {
@@ -161,6 +193,40 @@ class FileStorage(Storage):
             with open(path, "rb") as f:
                 return pickle.load(f)
         raise RuntimeError(f"Unknown storage format: {fmt}")
+
+
+class XcubeDataStoreStorage(Storage):
+    def __init__(self, store_id: str = "file", store_kwargs: dict = {}):
+        from xcube.core.store import new_data_store
+        if store_id is None and "root" not in store_kwargs:
+            store_kwargs.update({"root": INPUT_DIR})
+        self.store = new_data_store(store_id, **store_kwargs)
+
+
+    def save(self, key: str, obj: Any) -> Dict[str, Any]:
+        if isinstance(obj, (int, float, str, bool)):
+            return {"inline": True, "value": obj, "type": type(obj).__name__}
+
+        if isinstance(obj, xr.Dataset):
+            data_id = key + ".zarr"
+            self.store.write_data(obj, data_id)
+            return {
+                "inline": False,
+                "data_id": data_id,
+                "type": type(obj).__name__
+            }
+
+        raise RuntimeError(f"Unknown storage format: {type(obj)}")
+
+    def load(self, metadata: Dict[str, Any]) -> Any:
+        if metadata.get("inline"):
+            return metadata["value"]
+
+        data_id = metadata.get("data_id")
+        if not data_id:
+            raise RuntimeError(f"Invalid data_id: {data_id}")
+
+        return self.store.open_data(data_id)
 
 
 class Service:
