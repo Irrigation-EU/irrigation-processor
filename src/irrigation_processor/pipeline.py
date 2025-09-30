@@ -196,11 +196,14 @@ class FileStorage(Storage):
 
 
 class XcubeDataStoreStorage(Storage):
-    def __init__(self, store_id: str = "file", store_kwargs: dict = {}):
+    def __init__(self, store_id: str = "file", store_kwargs: dict | None =
+    None):
         from xcube.core.store import new_data_store
-
-        if store_id is None and "root" not in store_kwargs:
+        if not store_kwargs:
+            store_kwargs = {}
+        if store_id == "file" and "root" not in store_kwargs:
             store_kwargs.update({"root": INPUT_DIR})
+        print(store_kwargs)
         self.store = new_data_store(store_id, **store_kwargs)
 
     def save(self, key: str, obj: Any) -> Dict[str, Any]:
@@ -209,6 +212,11 @@ class XcubeDataStoreStorage(Storage):
 
         if isinstance(obj, xr.Dataset):
             data_id = key + ".zarr"
+            data_ids = self.store.list_data_ids()
+
+            if data_id in data_ids:
+                logger.warn(f"Data id already exists {data_id}")
+                return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
             self.store.write_data(obj, data_id)
             return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
 
@@ -259,6 +267,7 @@ class LocalService(Service):
 
             out_map = self._normalize_outputs(step_name, step_meta, result)
             self._state[step_name] = out_map
+            logger.info(f"Step state: {step_name}: {out_map}")
 
         logger.info("Pipeline run completed.")
         return self._state
@@ -307,7 +316,9 @@ class LocalService(Service):
 
         stored_map = {}
         for key, val in out_map.items():
-            stored_map[key] = self.storage.save(f"{step_name}/{key}", val)
+            if key == "result":
+                key = f"{step_name}_{key}"
+            stored_map[key] = self.storage.save(key, val)
         return stored_map
 
 

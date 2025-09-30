@@ -10,11 +10,8 @@ from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
 from irrigation_processor.constants import (
-    CLMS_DATA_ID,
-    ERA5_DATA_ID,
     INPUT_DIR,
     INPUT_FOR_CALIBRATION_ID,
-    LC_DATA_ID,
     PROCESSED_CLMS_DATA_ID,
     logger,
 )
@@ -25,8 +22,8 @@ store = new_data_store("file", root=INPUT_DIR)
 
 
 def irrigation_preprocessor(
-    context: PreprocessorContext, sm_path, lc_path, era5_path
-) -> dict:
+    context: PreprocessorContext, sm_cube: xr.Dataset, lc_cube: xr.Dataset,
+        era5_data_id: str) -> xr.Dataset:
     logger.info("irrigation preprocessor context...")
 
     data_ids = store.list_data_ids()
@@ -44,20 +41,25 @@ def irrigation_preprocessor(
 
     gdf = gpd.read_file(spatial_mask_path)
 
-    preprocessed_sm = _soil_moisture_preprocessor(context)
-    preprocessed_lc = _land_cover_preprocessor(context)
-    preprocessed_era5 = _era5_preprocessor(context)
+    preprocessed_sm = _soil_moisture_preprocessor(context, sm_cube)
+    preprocessed_lc = _land_cover_preprocessor(context, lc_cube)
+    preprocessed_era5 = _era5_preprocessor(context, era5_data_id)
 
-    merged_path = _merge(preprocessed_sm, preprocessed_lc, preprocessed_era5, gdf)
+    merged_ds = _merge(preprocessed_sm, preprocessed_lc, preprocessed_era5, gdf)
 
-    logger.info(f"preprocessing complete...{merged_path}")
-    return {"preprocessed_path": merged_path}
+    logger.info("preprocessing complete...")
+    return merged_ds
 
 
-def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
+def _soil_moisture_preprocessor(context: PreprocessorContext, clms_data:
+xr.Dataset) -> xr.Dataset:
+    data_ids = store.list_data_ids()
+    if PROCESSED_CLMS_DATA_ID in data_ids:
+        logger.info(f"CLMS processed data already exists at {INPUT_DIR}"
+                    f"/{PROCESSED_CLMS_DATA_ID}")
+        return store.open_data(PROCESSED_CLMS_DATA_ID)
+
     bbox = context.bbox
-
-    clms_data = store.open_data(CLMS_DATA_ID)
 
     # Interpolation
     full_time = pd.date_range(
@@ -98,10 +100,9 @@ def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
 
     SWI = chunk_dataset(SWI, chunk_sizes={"time": -1, "lat": 128, "lon": 128})
 
-    store.write_data(SWI.to_dataset(name="SWI"), PROCESSED_CLMS_DATA_ID)
     logger.info("preprocessed soil moisture...")
 
-    return store.open_data(PROCESSED_CLMS_DATA_ID)
+    return SWI.to_dataset(name="SWI")
 
 
 def swicomp_nan(in_data, in_jd, ctime=2):
@@ -125,9 +126,9 @@ def swicomp_nan(in_data, in_jd, ctime=2):
     return filtered
 
 
-def _land_cover_preprocessor(context: PreprocessorContext) -> xr.Dataset:
+def _land_cover_preprocessor(context: PreprocessorContext, lc: xr.Dataset) -> (
+        xr.Dataset):
     bbox = context.bbox
-    lc = store.open_data(LC_DATA_ID)
     lc_subset = lc.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
 
     keep_classes = [
@@ -146,8 +147,9 @@ def _land_cover_preprocessor(context: PreprocessorContext) -> xr.Dataset:
     return filtered_lc.isin(keep_classes_np).astype("uint8")
 
 
-def _era5_preprocessor(context: PreprocessorContext) -> xr.Dataset:
-    cds_cube = store.open_data(ERA5_DATA_ID)
+def _era5_preprocessor(context: PreprocessorContext, cds_data_id: str) -> (
+        xr.Dataset):
+    cds_cube = store.open_data(cds_data_id)
 
     cds_cube["pev"] = cds_cube["pev"] * -1
 
@@ -165,7 +167,7 @@ def _era5_preprocessor(context: PreprocessorContext) -> xr.Dataset:
 
 def _merge(
     soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: GeoDataFrame
-) -> str:
+) -> xr.Dataset:
     logger.info("merging...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
 
@@ -203,6 +205,4 @@ def _merge(
         format_name="zarr",
     )
 
-    store.write_data(chunked_ds, INPUT_FOR_CALIBRATION_ID)
-
-    return f"{INPUT_DIR}/{INPUT_FOR_CALIBRATION_ID}"
+    return chunked_ds

@@ -1,5 +1,7 @@
 from pydantic import BaseModel
+import xarray as xr
 
+from irrigation_processor.constants import CLMS_DATA_ID, LC_DATA_ID
 from src.irrigation_processor.pipeline import FromTask, Step
 
 step = Step()
@@ -45,41 +47,42 @@ def dataloader(context: DataLoaderContext):
 
 @step.register(
     inputs=(
-        FromTask("dataloader", "sm_path"),
-        FromTask("dataloader", "lc_path"),
-        FromTask("dataloader", "era5_path"),
+        FromTask("dataloader", CLMS_DATA_ID.split(".")[0]),
+        FromTask("dataloader", LC_DATA_ID.split(".")[0]),
+        FromTask("dataloader", "era5_data_id"),
     ),
     name="preprocessing",
     context_cls=PreprocessorContext,
 )
 def preprocessing(
-    context: PreprocessorContext, sm_path: str, lc_path: str, era5_path: str
+    context: PreprocessorContext, sm_cube: xr.Dataset, lc_cube: xr.Dataset, era5_data_id:
+        str
 ):
     from src.irrigation_processor.preprocessor import irrigation_preprocessor
 
-    return irrigation_preprocessor(context, sm_path, lc_path, era5_path)
+    return irrigation_preprocessor(context, sm_cube, lc_cube, era5_data_id)
 
-
-@step.register(
-    inputs=(FromTask("preprocessing", "preprocessed_path"),),
-    name="calibration",
-    context_cls=CalibratorContext,
-)
-def calibration(context: CalibratorContext, preprocessed_path: str):
-    from src.irrigation_processor.calibrator import soil_moisture_inversion_calibration
-
-    return soil_moisture_inversion_calibration(context, preprocessed_path)
-
-
-@step.register(
-    inputs=(
-        FromTask("preprocessing", "preprocessed_path"),
-        FromTask("calibration", "calibrated_path"),
-    ),
-    name="simulation",
-    context_cls=SimulatorContext,
-)
-def simulation(context: SimulatorContext, preprocessed_path: str, calibrated_path: str):
-    from src.irrigation_processor.simulator import irrigation_simulator
-
-    return irrigation_simulator(context, preprocessed_path, calibrated_path)
+#
+# @step.register(
+#     inputs=(FromTask("preprocessing", "preprocessed_path"),),
+#     name="calibration",
+#     context_cls=CalibratorContext,
+# )
+# def calibration(context: CalibratorContext, preprocessed_path: str):
+#     from src.irrigation_processor.calibrator import soil_moisture_inversion_calibration
+#
+#     return soil_moisture_inversion_calibration(context, preprocessed_path)
+#
+#
+# @step.register(
+#     inputs=(
+#         FromTask("preprocessing", "preprocessed_path"),
+#         FromTask("calibration", "calibrated_path"),
+#     ),
+#     name="simulation",
+#     context_cls=SimulatorContext,
+# )
+# def simulation(context: SimulatorContext, preprocessed_path: str, calibrated_path: str):
+#     from src.irrigation_processor.simulator import irrigation_simulator
+#
+#     return irrigation_simulator(context, preprocessed_path, calibrated_path)
