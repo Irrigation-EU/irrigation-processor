@@ -28,7 +28,9 @@ class PreprocessorContext(BaseContext):
 
 
 class CalibratorContext(BaseContext):
-    """"""
+    chunk_size: dict = {"time":-1, "lat": 10, "lon": 10}
+    mask_months: list = [5, 6, 7, 8, 9]
+    rainfall_threshold: float = 1.0
 
 
 class SimulatorContext(BaseContext):
