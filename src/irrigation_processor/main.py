@@ -2,6 +2,7 @@ import json
 
 from dask.distributed import Client, LocalCluster
 
+from irrigation_processor.pipeline import XcubeDataStoreStorage
 from src.irrigation_processor.pipeline import FileStorage, LocalService, Pipeline
 from src.irrigation_processor.steps import step
 
@@ -11,7 +12,8 @@ def main():
 
     # TODO:  Use Storage for xcube data store
 
-    storage = FileStorage("./pipeline_storage")
+    # storage = FileStorage("./pipeline_storage")
+    storage = XcubeDataStoreStorage()
     service = LocalService(storage=storage)
     p = Pipeline(service=service)
 
