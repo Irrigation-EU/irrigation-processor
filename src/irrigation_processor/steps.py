@@ -23,12 +23,11 @@ class DataLoaderContext(BaseContext):
 
 class PreprocessorContext(BaseContext):
     # TODO: a better way for these paths?
-    spatial_mask_path: str = ("notebooks/codes/ebro_data/Limite_Cuenca_Ebro84"
-                              ".shp")
+    spatial_mask_path: str = "notebooks/codes/ebro_data/Limite_Cuenca_Ebro84.shp"
 
 
 class CalibratorContext(BaseContext):
-    chunk_size: dict = {"time":-1, "lat": 10, "lon": 10}
+    chunk_size: dict = {"time": -1, "lat": 10, "lon": 10}
     mask_months: list = [5, 6, 7, 8, 9]
     rainfall_threshold: float = 1.0
 

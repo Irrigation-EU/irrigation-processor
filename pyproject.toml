@@ -58,7 +58,5 @@ mypy = "*"
 
 [tool.pixi.tasks]
 test = "pytest tests"
-format = "isort src/irrigation_processor && ruff format src/irrigation_processor"
-check = "ruff check src/irrigation_processor"
-check_fix = "ruff check src/irrigation_processor --fix"
+format = "isort src/irrigation_processor && ruff format src/irrigation_processor && ruff check src/irrigation_processor --fix"
 typecheck = "PYTHONPATH=./src mypy -p irrigation_processor"

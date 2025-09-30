@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
 import xarray as xr
 
-from irrigation_processor.constants import logger, INPUT_DIR
+from irrigation_processor.constants import INPUT_DIR, logger
 
 
 class StepRegistry:
@@ -198,10 +198,10 @@ class FileStorage(Storage):
 class XcubeDataStoreStorage(Storage):
     def __init__(self, store_id: str = "file", store_kwargs: dict = {}):
         from xcube.core.store import new_data_store
+
         if store_id is None and "root" not in store_kwargs:
             store_kwargs.update({"root": INPUT_DIR})
         self.store = new_data_store(store_id, **store_kwargs)
-
 
     def save(self, key: str, obj: Any) -> Dict[str, Any]:
         if isinstance(obj, (int, float, str, bool)):
@@ -210,11 +210,7 @@ class XcubeDataStoreStorage(Storage):
         if isinstance(obj, xr.Dataset):
             data_id = key + ".zarr"
             self.store.write_data(obj, data_id)
-            return {
-                "inline": False,
-                "data_id": data_id,
-                "type": type(obj).__name__
-            }
+            return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
 
         raise RuntimeError(f"Unknown storage format: {type(obj)}")
 

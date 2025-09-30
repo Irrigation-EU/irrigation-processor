@@ -1,39 +1,41 @@
 import geopandas as gpd
-import xarray as xr
-import pandas as pd
 import numpy as np
+import pandas as pd
+import xarray as xr
 from geopandas import GeoDataFrame
 from xcube.core.chunk import chunk_dataset
 from xcube.core.geom import mask_dataset_by_geometry
-
 from xcube.core.store import new_data_store
 from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
 from irrigation_processor.constants import (
     CLMS_DATA_ID,
-    PROCESSED_CLMS_DATA_ID,
-    LC_DATA_ID,
     ERA5_DATA_ID,
     INPUT_DIR,
     INPUT_FOR_CALIBRATION_ID,
+    LC_DATA_ID,
+    PROCESSED_CLMS_DATA_ID,
     logger,
 )
 from irrigation_processor.steps import PreprocessorContext
 from irrigation_processor.utils import convert_m_to_mm
 
-
 store = new_data_store("file", root=INPUT_DIR)
 
-def irrigation_preprocessor(context: PreprocessorContext, sm_path, lc_path,
-                            era5_path) -> dict:
+
+def irrigation_preprocessor(
+    context: PreprocessorContext, sm_path, lc_path, era5_path
+) -> dict:
     logger.info("irrigation preprocessor context...")
 
     data_ids = store.list_data_ids()
 
     if INPUT_FOR_CALIBRATION_ID in data_ids:
-        logger.info("Irrigation inputs are already preprocessed with "
-                    f"data_id: {INPUT_FOR_CALIBRATION_ID}")
+        logger.info(
+            "Irrigation inputs are already preprocessed with "
+            f"data_id: {INPUT_FOR_CALIBRATION_ID}"
+        )
         return {"preprocessed_path": f"{INPUT_DIR}/{INPUT_FOR_CALIBRATION_ID}"}
 
     # TODO: Use the paths provided to create the store and data_ids
@@ -51,8 +53,8 @@ def irrigation_preprocessor(context: PreprocessorContext, sm_path, lc_path,
     logger.info(f"preprocessing complete...{merged_path}")
     return {"preprocessed_path": merged_path}
 
-def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
 
+def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
     bbox = context.bbox
 
     clms_data = store.open_data(CLMS_DATA_ID)
@@ -72,9 +74,7 @@ def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
 
     clms_data_chunked = clms_data.chunk({"time": -1})
 
-    sm_filled = clms_data_chunked["ssm"].interpolate_na(
-        dim="time", method="linear"
-    )
+    sm_filled = clms_data_chunked["ssm"].interpolate_na(dim="time", method="linear")
 
     sm_clipped = sm_filled.clip(max=100)
 
@@ -104,7 +104,6 @@ def _soil_moisture_preprocessor(context: PreprocessorContext) -> xr.Dataset:
     return store.open_data(PROCESSED_CLMS_DATA_ID)
 
 
-
 def swicomp_nan(in_data, in_jd, ctime=2):
     filtered = np.empty(len(in_data))
     gain = 1
@@ -119,8 +118,8 @@ def swicomp_nan(in_data, in_jd, ctime=2):
     tdiff = np.diff(D)
 
     for i in range(2, SWI.size):
-        gain = gain / (gain + np.exp(- tdiff[i - 1] / ctime))
-        SWI[i] = SWI[i - 1] + gain * (SWI[i] - SWI[i-1])
+        gain = gain / (gain + np.exp(-tdiff[i - 1] / ctime))
+        SWI[i] = SWI[i - 1] + gain * (SWI[i] - SWI[i - 1])
 
     filtered[ID] = SWI
     return filtered
@@ -164,7 +163,9 @@ def _era5_preprocessor(context: PreprocessorContext) -> xr.Dataset:
     return cds_cube_daily
 
 
-def _merge(soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: GeoDataFrame) -> str:
+def _merge(
+    soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: GeoDataFrame
+) -> str:
     logger.info("merging...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
 
@@ -190,18 +191,18 @@ def _merge(soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: Geo
     soil_moisture_chunked = chunk_dataset(
         soil_moisture_masked, chunk_sizes={"time": -1, "lat": 128, "lon": 128}
     )
-    cds_chunked = chunk_dataset(cds_masked, chunk_sizes={
-        "time": -1, "lat": 128, "lon": 128})
+    cds_chunked = chunk_dataset(
+        cds_masked, chunk_sizes={"time": -1, "lat": 128, "lon": 128}
+    )
 
     ds_combined = xr.merge([soil_moisture_chunked, cds_chunked, lc_in_gm_sm])
 
     chunked_ds = chunk_dataset(
         ds_combined,
-        chunk_sizes={"time":-1, "lat":128, "lon":128},
+        chunk_sizes={"time": -1, "lat": 128, "lon": 128},
         format_name="zarr",
     )
 
     store.write_data(chunked_ds, INPUT_FOR_CALIBRATION_ID)
 
     return f"{INPUT_DIR}/{INPUT_FOR_CALIBRATION_ID}"
-

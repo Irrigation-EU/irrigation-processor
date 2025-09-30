@@ -1,14 +1,13 @@
 import json
 
 from xcube.core.store import new_data_store
-
 from zappend.api import zappend
 
 from irrigation_processor.constants import (
     CLMS_DATA_ID,
     ERA5_DATA_ID,
-    LC_DATA_ID,
     INPUT_DIR,
+    LC_DATA_ID,
     logger,
 )
 from irrigation_processor.steps import DataLoaderContext
@@ -18,7 +17,7 @@ store = new_data_store("file", root=INPUT_DIR)
 
 
 def load_data(context: DataLoaderContext) -> dict:
-    logger.info("loading data..." )
+    logger.info("loading data...")
     era5_path = _get_cds_data(context)
     sm_path = _get_clms_data(context)
     lc_path = _get_lc_data(context)
@@ -36,7 +35,6 @@ def _get_cds_data(context: DataLoaderContext) -> str:
     data_id = context.cds_data_id
     variables = context.cds_variables
     spatial_res = context.cds_spatial_res
-
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
 
