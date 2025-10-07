@@ -59,30 +59,29 @@ def preprocessing(
         str
 ):
     from src.irrigation_processor.preprocessor import irrigation_preprocessor
-
     return irrigation_preprocessor(context, sm_cube, lc_cube, era5_data_id)
 
-#
-# @step.register(
-#     inputs=(FromTask("preprocessing", "preprocessed_path"),),
-#     name="calibration",
-#     context_cls=CalibratorContext,
-# )
-# def calibration(context: CalibratorContext, preprocessed_path: str):
-#     from src.irrigation_processor.calibrator import soil_moisture_inversion_calibration
-#
-#     return soil_moisture_inversion_calibration(context, preprocessed_path)
-#
-#
-# @step.register(
-#     inputs=(
-#         FromTask("preprocessing", "preprocessed_path"),
-#         FromTask("calibration", "calibrated_path"),
-#     ),
-#     name="simulation",
-#     context_cls=SimulatorContext,
-# )
-# def simulation(context: SimulatorContext, preprocessed_path: str, calibrated_path: str):
-#     from src.irrigation_processor.simulator import irrigation_simulator
-#
-#     return irrigation_simulator(context, preprocessed_path, calibrated_path)
+
+@step.register(
+    inputs=(FromTask("preprocessing", "preprocessed_path"),),
+    name="calibration",
+    context_cls=CalibratorContext,
+)
+def calibration(context: CalibratorContext, preprocessed_path: str):
+    from src.irrigation_processor.calibrator import soil_moisture_inversion_calibration
+
+    return soil_moisture_inversion_calibration(context, preprocessed_path)
+
+
+@step.register(
+    inputs=(
+        FromTask("preprocessing", "preprocessed_path"),
+        FromTask("calibration", "calibrated_path"),
+    ),
+    name="simulation",
+    context_cls=SimulatorContext,
+)
+def simulation(context: SimulatorContext, preprocessed_path: str, calibrated_path: str):
+    from src.irrigation_processor.simulator import irrigation_simulator
+
+    return irrigation_simulator(context, preprocessed_path, calibrated_path)
