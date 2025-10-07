@@ -12,14 +12,35 @@ from irrigation_processor.constants import INPUT_DIR, logger
 class StepRegistry:
     def __init__(self):
         self._steps = {}
+        self._disabled_steps = set()
 
     def register(self, step_meta: "StepMeta"):
         if step_meta.name in self._steps:
             raise KeyError(f"A step named '{step_meta.name}' is already registered")
         self._steps[step_meta.name] = step_meta
 
-    def all(self):
-        return list(self._steps.values())
+    def all(self, include_disabled: bool = False):
+        if include_disabled:
+            return list(self._steps.values())
+        return [
+            step for name, step in self._steps.items()
+            if name not in self._disabled_steps
+        ]
+
+    def get(self, step_name: str) -> "StepMeta":
+        if step_name not in self._steps:
+            raise KeyError(f"No step named '{step_name}' is registered")
+        return self._steps[step_name]
+
+    def disable(self, step_name: str):
+        if step_name not in self._steps:
+            raise KeyError(f"No step named '{step_name}' is registered")
+        self._disabled_steps.add(step_name)
+
+    def enable(self, step_name: str):
+        if step_name not in self._steps:
+            raise KeyError(f"No step named '{step_name}' is registered")
+        self._disabled_steps.discard(step_name)
 
 
 #
@@ -28,9 +49,8 @@ class StepRegistry:
 
 @dataclass
 class FromTask:
-    def __init__(self, step: str, key: str):
-        self.step = step
-        self.key = key
+    step: str
+    key: str
 
     def to_dict(self) -> dict:
         return {"step": self.step, "key": self.key}
@@ -56,7 +76,7 @@ class StepMeta:
 
     def __repr__(self):
         return (
-            f"StepMeta(name={self.name}, func={self.func}, "
+            f"StepMeta(name={self.name}, "
             f"func_path={self.func_path}, inputs={self.inputs}, "
             f"outputs={self.outputs}, depends_on={self.depends_on})"
         )
@@ -97,7 +117,6 @@ class Step:
         if func is None:
             return decorator
         return decorator(func)
-
 
 class Storage(abc.ABC):
     @abc.abstractmethod
@@ -342,7 +361,6 @@ class Pipeline:
         self.steps[step_meta.name] = step_meta
 
     def add_steps_from_registry(self, registry: StepRegistry):
-        registry = registry
         for meta in registry.all():
             self.add(meta)
 
@@ -391,6 +409,9 @@ class Pipeline:
         return "\n".join(lines)
 
     def run(self):
+        if not self.steps:
+            print("Please add steps to the pipeline first.")
+            return
         deps = self._build_graph()
         order = Pipeline._toposort(deps)
         return self.service.run(order, self.steps)
