@@ -2,6 +2,7 @@ import json
 import os.path
 
 import xarray as xr
+from pydantic import BaseModel
 from xcube.core.store import new_data_store
 from zappend.api import zappend
 
@@ -11,14 +12,14 @@ from irrigation_processor.constants import (
     INPUT_DIR,
     LC_DATA_ID,
     logger,
+    CDS_VARIABLES,
 )
-from irrigation_processor.steps import DataLoaderContext
 from irrigation_processor.utils import split_date_range
 
 store = new_data_store("file", root=INPUT_DIR)
 
 
-def load_data(context: DataLoaderContext) -> dict:
+def load_data(context: BaseModel) -> dict:
     logger.info("loading data...")
 
     era5_data_id = _get_cds_data(context)
@@ -27,13 +28,13 @@ def load_data(context: DataLoaderContext) -> dict:
 
     logger.info("data loaded...")
     return {
-        CLMS_DATA_ID.split(".")[0]: sm_cube,
-        LC_DATA_ID.split(".")[0]: lc_cube,
+        CLMS_DATA_ID: sm_cube,
+        LC_DATA_ID: lc_cube,
         "era5_data_id": era5_data_id
             }
 
 
-def _get_cds_data(context: DataLoaderContext) -> str:
+def _get_cds_data(context: BaseModel) -> str:
     data_ids = store.list_data_ids()
     if ERA5_DATA_ID in data_ids:
         logger.info(f"CLMS data already exists at {INPUT_DIR}/{ERA5_DATA_ID}")
@@ -42,7 +43,6 @@ def _get_cds_data(context: DataLoaderContext) -> str:
     time_range = context.time_range
     bbox = context.bbox
     data_id = context.cds_data_id
-    variables = context.cds_variables
     spatial_res = context.cds_spatial_res
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
@@ -54,7 +54,7 @@ def _get_cds_data(context: DataLoaderContext) -> str:
         cds_cube = cds_store.open_data(
             data_id,
             cds_store.get_data_opener_ids()[0],
-            variable_names=variables,
+            variable_names=CDS_VARIABLES,
             bbox=bbox,
             spatial_res=spatial_res,
             time_range=_time_range,
@@ -80,7 +80,7 @@ def _get_cds_data(context: DataLoaderContext) -> str:
     return ERA5_DATA_ID
 
 
-def _get_clms_data(context: DataLoaderContext) -> xr.Dataset:
+def _get_clms_data(context: BaseModel) -> xr.Dataset:
     data_ids = store.list_data_ids()
     if CLMS_DATA_ID in data_ids:
         logger.info(f"CLMS data already exists at {INPUT_DIR}/{CLMS_DATA_ID}")
@@ -104,7 +104,7 @@ def _get_clms_data(context: DataLoaderContext) -> xr.Dataset:
     return clms_ssm_only
 
 
-def _get_lc_data(context: DataLoaderContext) -> xr.Dataset:
+def _get_lc_data(context: BaseModel) -> xr.Dataset:
     data_ids = store.list_data_ids()
     if LC_DATA_ID in data_ids:
         logger.info(f"LandCover data already exists at {INPUT_DIR}"

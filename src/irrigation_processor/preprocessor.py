@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from geopandas import GeoDataFrame
+from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
 from xcube.core.geom import mask_dataset_by_geometry
 from xcube.core.store import new_data_store
@@ -15,16 +16,14 @@ from irrigation_processor.constants import (
     PROCESSED_CLMS_DATA_ID,
     logger,
 )
-from irrigation_processor.steps import PreprocessorContext
 from irrigation_processor.utils import convert_m_to_mm
 
 store = new_data_store("file", root=INPUT_DIR)
 
 
 def irrigation_preprocessor(
-    context: PreprocessorContext, sm_cube: xr.Dataset, lc_cube: xr.Dataset,
+    context: BaseModel, sm_cube: xr.Dataset, lc_cube: xr.Dataset,
         era5_data_id: str) -> xr.Dataset:
-    logger.info("irrigation preprocessor context...")
 
     data_ids = store.list_data_ids()
 
@@ -51,7 +50,7 @@ def irrigation_preprocessor(
     return merged_ds
 
 
-def _soil_moisture_preprocessor(context: PreprocessorContext, clms_data:
+def _soil_moisture_preprocessor(context: BaseModel, clms_data:
 xr.Dataset) -> xr.Dataset:
     data_ids = store.list_data_ids()
     if PROCESSED_CLMS_DATA_ID in data_ids:
@@ -126,7 +125,7 @@ def swicomp_nan(in_data, in_jd, ctime=2):
     return filtered
 
 
-def _land_cover_preprocessor(context: PreprocessorContext, lc: xr.Dataset) -> (
+def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> (
         xr.Dataset):
     bbox = context.bbox
     lc_subset = lc.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
@@ -147,7 +146,7 @@ def _land_cover_preprocessor(context: PreprocessorContext, lc: xr.Dataset) -> (
     return filtered_lc.isin(keep_classes_np).astype("uint8")
 
 
-def _era5_preprocessor(context: PreprocessorContext, cds_data_id: str) -> (
+def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> (
         xr.Dataset):
     cds_cube = store.open_data(cds_data_id)
 

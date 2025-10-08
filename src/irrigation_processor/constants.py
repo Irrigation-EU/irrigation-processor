@@ -12,4 +12,12 @@ INPUT_FOR_CALIBRATION_ID = "irrigation_input.zarr"
 CALIBRATED_PARAMS_ID = "calibrated.zarr"
 
 # xcube file data store name
-INPUT_DIR = "input_irrigation"
+INPUT_DIR = "input_irrigation2"
+
+# Pipeline results
+PIPELINE_RESULTS_CACHE_DIR = ".pipeline_results_cache"
+
+CDS_VARIABLES = [
+    "potential_evaporation",
+    "total_precipitation",
+  ]

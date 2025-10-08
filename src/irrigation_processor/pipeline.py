@@ -1,12 +1,15 @@
+import os
+import json
 import abc
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Iterable
 
 import xarray as xr
 
-from irrigation_processor.constants import INPUT_DIR, logger
+from irrigation_processor.constants import INPUT_DIR, logger, \
+    PIPELINE_RESULTS_CACHE_DIR
 
 
 class StepRegistry:
@@ -63,8 +66,8 @@ class StepMeta:
         inputs: Iterable[str] = (),
         outputs: Iterable[str] = (),
         depends_on: Iterable[str] = (),
-        name: Optional[str] = None,
-        context_cls: Optional[type] = None,
+        name: str | None = None,
+        context_cls: type | None = None,
     ):
         self.func = func
         self.func_path = f"{func.__module__}:{func.__name__}"
@@ -78,7 +81,7 @@ class StepMeta:
         return (
             f"StepMeta(name={self.name}, "
             f"func_path={self.func_path}, inputs={self.inputs}, "
-            f"outputs={self.outputs}, depends_on={self.depends_on})"
+            f"outputs={self.outputs}, depends_on={self.depends_on}), "
         )
 
 
@@ -93,14 +96,14 @@ class Step:
 
     def register(
         self,
-        func: Optional[Callable] = None,
+        func: Callable | None = None,
         /,
         *,
         inputs: Iterable = (),
         outputs: Iterable[str] = (),
         depends_on: Iterable[str] = (),
-        name: Optional[str] = None,
-        context_cls: Optional[type] = None,
+        name: str | None = None,
+        context_cls: type | None = None,
     ) -> Callable:
         def decorator(f: Callable) -> Callable:
             meta = StepMeta(
@@ -120,7 +123,7 @@ class Step:
 
 class Storage(abc.ABC):
     @abc.abstractmethod
-    def save(self, key: str, obj: Any) -> Dict[str, Any]:
+    def save(self, key: str, obj: Any) -> dict[str, Any]:
         """Save object and return metadata (e.g. where it was saved).
 
         This method must handle 2 cases:
@@ -152,7 +155,7 @@ class Storage(abc.ABC):
         """
 
     @abc.abstractmethod
-    def load(self, metadata: Dict[str, Any]) -> Any:
+    def load(self, metadata: dict[str, Any]) -> Any:
         """Load an object previously saved using the metadata returned by save.
 
         This method must handle the loading of the 3 cases as discussed in
@@ -168,7 +171,7 @@ class FileStorage(Storage):
     - Small literals (int/float/str/dict) are kept inline in metadata (no file written)
     """
 
-    def __init__(self, root: Union[str, Path]):
+    def __init__(self, root: str | Path):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
@@ -176,7 +179,7 @@ class FileStorage(Storage):
         safe = key.replace("/", "_")
         return self.root / f"{safe}{suffix}"
 
-    def save(self, key: str, obj: Any) -> Dict[str, Any]:
+    def save(self, key: str, obj: Any) -> dict[str, Any]:
         if isinstance(obj, (int, float, str, bool)):
             return {"inline": True, "value": obj, "type": type(obj).__name__}
 
@@ -201,7 +204,7 @@ class FileStorage(Storage):
             "type": type(obj).__name__,
         }
 
-    def load(self, metadata: Dict[str, Any]) -> Any:
+    def load(self, metadata: dict[str, Any]) -> Any:
         if metadata.get("inline"):
             return metadata["value"]
         path = metadata.get("path")
@@ -225,12 +228,12 @@ class XcubeDataStoreStorage(Storage):
         print(store_kwargs)
         self.store = new_data_store(store_id, **store_kwargs)
 
-    def save(self, key: str, obj: Any) -> Dict[str, Any]:
+    def save(self, key: str, obj: Any) -> dict[str, Any]:
         if isinstance(obj, (int, float, str, bool)):
             return {"inline": True, "value": obj, "type": type(obj).__name__}
 
         if isinstance(obj, xr.Dataset):
-            data_id = key + ".zarr"
+            data_id = key
             data_ids = self.store.list_data_ids()
 
             if data_id in data_ids:
@@ -241,7 +244,7 @@ class XcubeDataStoreStorage(Storage):
 
         raise RuntimeError(f"Unknown storage format: {type(obj)}")
 
-    def load(self, metadata: Dict[str, Any]) -> Any:
+    def load(self, metadata: dict[str, Any]) -> Any:
         if metadata.get("inline"):
             return metadata["value"]
 
@@ -253,31 +256,38 @@ class XcubeDataStoreStorage(Storage):
 
 
 class Service:
-    def __init__(self, storage: Storage):
+    def __init__(self, storage: Storage, use_cache: bool = False):
         self.storage = storage
         # state mapping step_name -> output_key -> metadata (returned by storage.save)
-        self._state: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        self._state: dict[str, dict[str, dict[str, Any]]] = {}
+        self.use_cache = use_cache
 
-    def run(self, order, steps):
+    def run(self,
+            pipeline_name: str,
+            order: list[str],
+            steps: dict[str, StepMeta]
+            ):
         """Execute steps in given order. Returns state with outputs."""
         raise NotImplementedError
 
 
 class LocalService(Service):
-    def run(self, order, steps):
+    def run(self,
+            pipeline_name: str,
+            order: list[str],
+            steps: dict[str, StepMeta],
+            ):
         logger.info(":::::::LocalService:::::::")
         for step_name in order:
             step_meta = steps[step_name]
             logger.info(f"Running step: {step_name}")
 
             resolved_args, resolved_kwargs = self._resolve_inputs(
-                step_name,
-                step_meta,
-                self.storage,
+                step_name, step_meta, self.storage, pipeline_name
             )
 
             ctx = (
-                step_meta.context_cls(step_name=step_name)
+                step_meta.context_cls()
                 if step_meta.context_cls
                 else None
             )
@@ -287,52 +297,94 @@ class LocalService(Service):
             out_map = self._normalize_outputs(step_name, step_meta, result)
             self._state[step_name] = out_map
             logger.info(f"Step state: {step_name}: {out_map}")
+            save_pipeline_step_state(pipeline_name, step_name, out_map)
 
         logger.info("Pipeline run completed.")
         return self._state
 
-    def _resolve_inputs(self, step_name, meta, storage):
+    def _resolve_inputs(self, step_name, meta, storage, pipeline_name):
         resolved_args, resolved_kwargs = [], {}
         if isinstance(meta.inputs, (list, tuple)):
             for inp in meta.inputs:
                 if isinstance(inp, FromTask):
                     s, k = inp.step, inp.key
-                    if s not in self._state or k not in self._state[s]:
-                        raise KeyError(
-                            f"Missing output '{k}' from step '{s}' required by '{step_name}'"
-                        )
-                    resolved_args.append(storage.load(self._state[s][k]))
+
+                    # check if previous steps results are available in cache
+                    if self.use_cache:
+                        logger.info(f"Using cache for args for step: {s}")
+                        state = load_pipeline_step_state(pipeline_name,
+                                                        s)
+                        resolved_args.append(storage.load(state[k]))
+                    # if not using cache, checking if previous steps ran and
+                    # expected output exists
+                    else:
+                        if s not in self._state or k not in self._state[s]:
+                            raise KeyError(
+                                f"Missing output '{k}' from step '{s}' required by '{step_name}'"
+                            )
+                        resolved_args.append(storage.load(self._state[s][k]))
                 else:
                     resolved_args.append(inp)
         elif isinstance(meta.inputs, dict):
             for name, inp in meta.inputs.items():
                 if isinstance(inp, FromTask):
                     s, k = inp.step, inp.key
-                    if s not in self._state or k not in self._state[s]:
-                        raise KeyError(
-                            f"Missing output '{k}' from step '{s}' required by '{step_name}'"
-                        )
-                    resolved_kwargs[name] = storage.load(self._state[s][k])
+
+                    # check if previous steps results are available in cache
+                    if self.use_cache:
+                        logger.info(f"Using cache for kwargs for step:"
+                                    f" {s}")
+                        state = load_pipeline_step_state(pipeline_name, s)
+                        resolved_kwargs[name] = storage.load(state[k])
+
+                    # if not using cache, checking if previous steps ran and
+                    # expected output exists
+                    else:
+                        if s not in self._state or k not in self._state[s]:
+                            raise KeyError(
+                                f"Missing output '{k}' from step '{s}' required by '{step_name}'"
+                            )
+                        resolved_kwargs[name] = storage.load(self._state[s][k])
                 else:
                     resolved_kwargs[name] = inp
         return resolved_args, resolved_kwargs
 
-    def _normalize_outputs(self, step_name, meta, result):
+    def _normalize_outputs(
+            self,
+            step_name: str,
+            meta: StepMeta,
+            result: Any
+    ) -> dict:
+        # First create output json
         out_map = {}
+
+        # If the step already returns a dict, user's output information from
+        # the step is ignored.
         if isinstance(result, dict):
             out_map.update(result)
-        elif meta.outputs and len(meta.outputs) == 1:
-            out_map[meta.outputs[0]] = result
-        elif isinstance(result, (list, tuple)) and len(result) == len(meta.outputs):
-            for k, v in zip(meta.outputs, result):
-                out_map[k] = v
         else:
             if meta.outputs:
-                for k in meta.outputs:
-                    out_map[k] = result
+                if isinstance(result, (list, tuple)):
+                    if len(result) != len(meta.outputs):
+                        raise ValueError("The length of the expected outputs: "
+                                         f"{len(meta.outputs)} is not the "
+                                         f"same as the length: {len(result)} of "
+                                         f"retuned iterable by step {step_name}")
+                    for i, k in enumerate(meta.outputs):
+                        out_map[k] = result[i]
+                else:
+                    if len(meta.outputs) > 1:
+                        raise ValueError("More outputs specified than the step: "
+                                    f"{step_name} returned:"
+                                    f" {len(meta.outputs)}")
+                    out_map[meta.outputs[0]] = result
             else:
-                out_map["result"] = result
+                raise ValueError(f"The step {step_name} does not return a "
+                                 f"dict nor the output was defined in the "
+                                 f"decorator.")
 
+        # Then store the data if any big data found in this json and replace
+        # it with its path instead
         stored_map = {}
         for key, val in out_map.items():
             if key == "result":
@@ -351,9 +403,10 @@ class LocalService(Service):
 
 
 class Pipeline:
-    def __init__(self, service: Service):
-        self.steps: Dict[str, StepMeta] = {}
+    def __init__(self, service: Service, pipeline_name: str):
+        self.steps: dict[str, StepMeta] = {}
         self.service = service
+        self.pipeline_name = pipeline_name
 
     def add(self, step_meta: StepMeta):
         if step_meta.name in self.steps:
@@ -364,18 +417,29 @@ class Pipeline:
         for meta in registry.all():
             self.add(meta)
 
-    def _build_graph(self) -> Dict[str, List[str]]:
-        deps: Dict[str, List[str]] = {name: [] for name in self.steps}
+    def _build_graph(self) -> dict[str, list[str]]:
+        deps: dict[str, set[str]] = {name: set() for name in self.steps}
+        # for name, meta in self.steps.items():
+        #     for d in meta.depends_on:
+        #         deps[name].append(d)
+        #     for inp in meta.inputs:
+        #         if isinstance(inp, FromTask):
+        #             deps[name].append(inp.step)
         for name, meta in self.steps.items():
-            for d in meta.depends_on:
-                deps[name].append(d)
+            deps[name].update(meta.depends_on)
             for inp in meta.inputs:
                 if isinstance(inp, FromTask):
-                    deps[name].append(inp.step)
-        return deps
+                    deps[name].add(inp.step)
+
+        for step, srcs in deps.items():
+            for dep in srcs:
+                if dep not in self.steps:
+                    raise ValueError(f"Step '{step}' depends on unknown step '{dep}'")
+
+        return {k: list(v) for k, v in deps.items()}
 
     @staticmethod
-    def _toposort(deps: Dict[str, List[str]]) -> List[str]:
+    def _toposort(deps: dict[str, list[str]]) -> list[str]:
         # Kahn's algorithm
         incoming = {n: set(srcs) for n, srcs in deps.items()}
         out = []
@@ -399,6 +463,8 @@ class Pipeline:
 
     def visualize_dot(self) -> str:
         deps = self._build_graph()
+        print(deps)
+        print("---------")
         lines = ["digraph pipeline {", "rankdir=LR;"]
         for node in deps:
             lines.append(f'"{node}";')
@@ -414,4 +480,24 @@ class Pipeline:
             return
         deps = self._build_graph()
         order = Pipeline._toposort(deps)
-        return self.service.run(order, self.steps)
+        return self.service.run(self.pipeline_name, order, self.steps)
+
+def save_pipeline_step_state(pipeline_name: str, step_name: str, data: dict) -> str:
+    base_path = os.path.join(PIPELINE_RESULTS_CACHE_DIR, pipeline_name)
+    os.makedirs(base_path, exist_ok=True)
+    file_path = os.path.join(base_path, f"{step_name}.json")
+
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4)
+
+    return file_path
+
+def load_pipeline_step_state(pipeline_name: str, step_name: str) -> dict:
+    file_path = os.path.join(PIPELINE_RESULTS_CACHE_DIR, pipeline_name,
+                             f"{step_name}.json")
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"No saved step found at {file_path}")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
