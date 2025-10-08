@@ -1,5 +1,6 @@
 import numpy as np
 import xarray as xr
+from pydantic import BaseModel
 from scipy.optimize import minimize
 from xcube.core.chunk import chunk_dataset
 from xcube.core.store import new_data_store
@@ -10,13 +11,12 @@ from irrigation_processor.constants import (
     INPUT_FOR_CALIBRATION_ID,
     logger,
 )
-from irrigation_processor.steps import CalibratorContext
 
 store = new_data_store("file", root=INPUT_DIR)
 
 
 def soil_moisture_inversion_calibration(
-    context: CalibratorContext, input_path: str
+    context: BaseModel, input_path: str
 ) -> dict:
     logger.info(f"calibrating... {context} {input_path}")
     irr_input = store.open_data(INPUT_FOR_CALIBRATION_ID)
