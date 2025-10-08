@@ -419,12 +419,6 @@ class Pipeline:
 
     def _build_graph(self) -> dict[str, list[str]]:
         deps: dict[str, set[str]] = {name: set() for name in self.steps}
-        # for name, meta in self.steps.items():
-        #     for d in meta.depends_on:
-        #         deps[name].append(d)
-        #     for inp in meta.inputs:
-        #         if isinstance(inp, FromTask):
-        #             deps[name].append(inp.step)
         for name, meta in self.steps.items():
             deps[name].update(meta.depends_on)
             for inp in meta.inputs:

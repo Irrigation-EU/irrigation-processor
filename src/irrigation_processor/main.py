@@ -11,19 +11,7 @@ from src.irrigation_processor.pipeline import FileStorage, LocalService, Pipelin
 from src.irrigation_processor.steps import step
 
 
-def run_pipeline(config_file: Path,
-                 disable_steps: list[str]=None):
-    registry = step.get_registry()
-
-    if disable_steps:
-        for s in disable_steps:
-            registry.disable(s)
-
-    if not config_file.exists():
-        raise FileNotFoundError(f"Config file not found: {config_file}")
-
-    with open(config_file, "r") as f:
-        config = yaml.safe_load(f)
+def _inject_dynamic_context_from_config(config: dict, registry):
 
     base_cfg = config.get("base", {})
 
@@ -46,15 +34,33 @@ def run_pipeline(config_file: Path,
         context_obj = config_model(**merged_cfg)
         step_meta.context_cls = lambda obj=context_obj: obj
 
+def run_pipeline(config_file: Path,
+                 disable_steps: list[str]=None):
+    registry = step.get_registry()
+
+    if disable_steps:
+        for s in disable_steps:
+            registry.disable(s)
+
+    if not config_file.exists():
+        raise FileNotFoundError(f"Config file not found: {config_file}")
+
+    with open(config_file, "r") as f:
+        config = yaml.safe_load(f)
+
+    _inject_dynamic_context_from_config(config, registry)
+
     storage = XcubeDataStoreStorage()
     service = LocalService(storage=storage, use_cache=True)
     p = Pipeline(service=service, pipeline_name="irrigation_estimates")
 
     p.add_steps_from_registry(registry)
-    dot_str = p.visualize_dot()
 
+    # render dag
+    dot_str = p.visualize_dot()
     src = Source(dot_str)
     src.render("pipeline", format="png", view=True)
+
     state = p.run()
     print("State metadata:\n", json.dumps(state, indent=2))
 
