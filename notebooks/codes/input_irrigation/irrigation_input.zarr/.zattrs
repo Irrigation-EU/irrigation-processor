@@ -1,0 +1,13 @@
+{
+    "date_modified": "2025-09-05T15:41:21.523272",
+    "geospatial_bounds": "POLYGON((-4.410714287500187 40.339285712498786, -4.410714287500187 43.19642857321242, 2.160714287499627 43.19642857321242, 2.160714287499627 40.339285712498786, -4.410714287500187 40.339285712498786))",
+    "geospatial_bounds_crs": "CRS84",
+    "geospatial_lat_max": 43.19642857321242,
+    "geospatial_lat_min": 40.339285712498786,
+    "geospatial_lat_resolution": 0.008928575,
+    "geospatial_lat_units": "degrees_north",
+    "geospatial_lon_max": 2.160714287499627,
+    "geospatial_lon_min": -4.410714287500187,
+    "geospatial_lon_resolution": 0.008928575,
+    "geospatial_lon_units": "degrees_east"
+}

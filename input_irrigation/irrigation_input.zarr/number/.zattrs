@@ -1,0 +1,6 @@
+{
+    "_ARRAY_DIMENSIONS": [],
+    "long_name": "ensemble member numerical id",
+    "standard_name": "realization",
+    "units": "1"
+}

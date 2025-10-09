@@ -1,0 +1,13 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "lat",
+        "lon"
+    ],
+    "coordinates": "spatial_ref",
+    "flag_meanings": "no_data croplands_land_cover",
+    "flag_values": [
+        0,
+        1
+    ],
+    "grid_mapping": "spatial_ref"
+}
