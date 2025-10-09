@@ -1,0 +1,8 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "lat",
+        "lon",
+        "params"
+    ],
+    "coordinates": "number spatial_ref"
+}

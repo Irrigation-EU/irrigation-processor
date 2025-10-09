@@ -1,0 +1,27 @@
+{
+    "Class": "DATA",
+    "_ARRAY_DIMENSIONS": [
+        "time",
+        "lat",
+        "lon"
+    ],
+    "_Unsigned": "true",
+    "coordinates": "time lat lon",
+    "flag_meanings": "ExceedingMin ExceedingMax WaterMask SensitivityMask SlopeMask",
+    "flag_values": [
+        241,
+        242,
+        251,
+        252,
+        253
+    ],
+    "grid_mapping": "crs",
+    "long_name": "Surface Soil Moisture",
+    "missing_value": 255,
+    "scale_factor": 0.5,
+    "units": "%",
+    "valid_range": [
+        0,
+        200
+    ]
+}
