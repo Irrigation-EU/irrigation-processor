@@ -8,7 +8,7 @@ from graphviz import Source
 
 from irrigation_processor.pipeline import XcubeDataStoreStorage
 from src.irrigation_processor.pipeline import FileStorage, LocalService, Pipeline
-from src.irrigation_processor.steps import step
+from src.irrigation_processor.steps import registry
 
 
 def _inject_dynamic_context_from_config(config: dict, registry):
@@ -34,9 +34,8 @@ def _inject_dynamic_context_from_config(config: dict, registry):
         context_obj = config_model(**merged_cfg)
         step_meta.context_cls = lambda obj=context_obj: obj
 
-def run_pipeline(config_file: Path,
+def execute_pipeline(config_file: Path,
                  disable_steps: list[str]=None):
-    registry = step.get_registry()
 
     if disable_steps:
         for s in disable_steps:
@@ -68,11 +67,11 @@ def run_pipeline(config_file: Path,
 if __name__ == "__main__":
     # cluster = LocalCluster(n_workers=4, threads_per_worker=2)
     # client = Client(cluster)
-    disbaled_steps = ["calibration", "simulation"]
+    disabled_steps = ["calibration", "simulation"]
     config_path = Path("config.yml")
-    run_pipeline(
+    execute_pipeline(
         config_file=config_path,
-        disable_steps=disbaled_steps
+        # disable_steps=disabled_steps
     )
 
 # TODO:
