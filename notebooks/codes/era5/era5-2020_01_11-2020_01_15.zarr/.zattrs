@@ -1,8 +1,0 @@
-{
-    "Conventions": "CF-1.7",
-    "GRIB_centre": "ecmf",
-    "GRIB_centreDescription": "European Centre for Medium-Range Weather Forecasts",
-    "GRIB_subCentre": 0,
-    "history": "2025-09-02T12:42 GRIB to CDM+CF via cfgrib-0.9.15.0/ecCodes-2.42.0 with {\"source\": \"data.grib\", \"filter_by_keys\": {}, \"encode_cf\": [\"parameter\", \"time\", \"geography\", \"vertical\"]}",
-    "institution": "European Centre for Medium-Range Weather Forecasts"
-}
