@@ -45,13 +45,36 @@ class StepRegistry:
             raise KeyError(f"No step named '{step_name}' is registered")
         self._disabled_steps.discard(step_name)
 
+    def step(
+        self,
+        func: Callable | None = None,
+        /,
+        *,
+        inputs: Iterable = (),
+        outputs: Iterable[str] = (),
+        depends_on: Iterable[str] = (),
+        name: str | None = None,
+        context_cls: type | None = None,
+    ) -> Callable:
+        def decorator(f: Callable) -> Callable:
+            meta = StepMeta(
+                func=f,
+                inputs=inputs,
+                outputs=outputs,
+                depends_on=depends_on,
+                name=name,
+                context_cls=context_cls,
+            )
+            self.register(meta)
+            return f
 
-#
-# STEP_REGISTRY = StepRegistry()
+        if func is None:
+            return decorator
+        return decorator(func)
 
 
 @dataclass
-class FromTask:
+class FromStep:
     step: str
     key: str
 
@@ -84,42 +107,6 @@ class StepMeta:
             f"outputs={self.outputs}, depends_on={self.depends_on}), "
         )
 
-
-class Step:
-    def __init__(
-        self,
-    ):
-        self.step_registry = StepRegistry()
-
-    def get_registry(self):
-        return self.step_registry
-
-    def register(
-        self,
-        func: Callable | None = None,
-        /,
-        *,
-        inputs: Iterable = (),
-        outputs: Iterable[str] = (),
-        depends_on: Iterable[str] = (),
-        name: str | None = None,
-        context_cls: type | None = None,
-    ) -> Callable:
-        def decorator(f: Callable) -> Callable:
-            meta = StepMeta(
-                func=f,
-                inputs=inputs,
-                outputs=outputs,
-                depends_on=depends_on,
-                name=name,
-                context_cls=context_cls,
-            )
-            self.step_registry.register(meta)
-            return f
-
-        if func is None:
-            return decorator
-        return decorator(func)
 
 class Storage(abc.ABC):
     @abc.abstractmethod
@@ -306,7 +293,7 @@ class LocalService(Service):
         resolved_args, resolved_kwargs = [], {}
         if isinstance(meta.inputs, (list, tuple)):
             for inp in meta.inputs:
-                if isinstance(inp, FromTask):
+                if isinstance(inp, FromStep):
                     s, k = inp.step, inp.key
 
                     # check if previous steps results are available in cache
@@ -327,7 +314,7 @@ class LocalService(Service):
                     resolved_args.append(inp)
         elif isinstance(meta.inputs, dict):
             for name, inp in meta.inputs.items():
-                if isinstance(inp, FromTask):
+                if isinstance(inp, FromStep):
                     s, k = inp.step, inp.key
 
                     # check if previous steps results are available in cache
@@ -396,7 +383,8 @@ class LocalService(Service):
 # class AirflowService(LocalService):
 #     def run(self, order, steps):
 #         """
-#         dag_id = gen_dags(order, steps)
+#         image_name = gen_docker_image()
+#         dag_id = gen_dags(image_name, order, steps)
 #         result = trigger_dag(dag_id)
 #         return result
 #         """
@@ -422,7 +410,7 @@ class Pipeline:
         for name, meta in self.steps.items():
             deps[name].update(meta.depends_on)
             for inp in meta.inputs:
-                if isinstance(inp, FromTask):
+                if isinstance(inp, FromStep):
                     deps[name].add(inp.step)
 
         for step, srcs in deps.items():

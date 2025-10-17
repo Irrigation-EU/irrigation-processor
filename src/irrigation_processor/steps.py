@@ -2,21 +2,21 @@ from pydantic import BaseModel
 import xarray as xr
 
 from irrigation_processor.constants import CLMS_DATA_ID, LC_DATA_ID
-from src.irrigation_processor.pipeline import FromTask, Step
+from src.irrigation_processor.pipeline import FromStep, StepRegistry
 
-step = Step()
+registry = StepRegistry()
 
-@step.register(name="dataloader")
+@registry.step(name="dataloader")
 def dataloader(context: BaseModel):
     from src.irrigation_processor.dataloader import load_data
     return load_data(context)
 
 
-@step.register(
+@registry.step(
     inputs=(
-        FromTask("dataloader", CLMS_DATA_ID),
-        FromTask("dataloader", LC_DATA_ID),
-        FromTask("dataloader", "era5_data_id"),
+            FromStep("dataloader", CLMS_DATA_ID),
+            FromStep("dataloader", LC_DATA_ID),
+            FromStep("dataloader", "era5_data_id"),
     ),
     outputs=(
         "preprocessed.zarr",
@@ -31,8 +31,8 @@ def preprocessing(
     return irrigation_preprocessor(context, sm_cube, lc_cube, era5_data_id)
 
 
-@step.register(
-    inputs=(FromTask("preprocessing", "preprocessed_path"),),
+@registry.step(
+    inputs=(FromStep("preprocessing", "preprocessed_path"),),
     name="calibration",
 )
 def calibration(context: BaseModel, preprocessed_path: str):
@@ -41,10 +41,10 @@ def calibration(context: BaseModel, preprocessed_path: str):
     return soil_moisture_inversion_calibration(context, preprocessed_path)
 
 
-@step.register(
+@registry.step(
     inputs=(
-        FromTask("preprocessing", "preprocessed_path"),
-        FromTask("calibration", "calibrated_path"),
+            FromStep("preprocessing", "preprocessed_path"),
+            FromStep("calibration", "calibrated_path"),
     ),
     name="simulation",
 )

@@ -1,0 +1,19 @@
+base:
+  time_range: ["2020-01-01", "2020-01-31"]
+  bbox: [-5, 40, 3, 44]
+
+dataloader:
+  lc_time: "2020-01-01"
+  cds_data_id: "reanalysis-era5-land"
+  cds_spatial_res: 0.1
+
+preprocessing:
+  spatial_mask_path: "notebooks/codes/ebro_data/Limite_Cuenca_Ebro84.shp"
+
+calibration:
+  chunk_size:
+    time: -1
+    lat: 10
+    lon: 10
+  mask_months: [5, 6, 7, 8, 9]
+  rainfall_threshold: 1.0
