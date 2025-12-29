@@ -2,8 +2,10 @@ import abc
 from typing import Any
 
 import xarray as xr
+from xcube.core.store import new_data_store
 
 from irrigation_processor.constants import OUTPUT_DIR, LOG
+
 
 
 class Storage(abc.ABC):
@@ -50,7 +52,6 @@ class Storage(abc.ABC):
 class XcubeDataStoreStorage(Storage):
     def __init__(self, store_id: str = "file", store_kwargs: dict | None =
     None):
-        from xcube.core.store import new_data_store
         if not store_kwargs:
             store_kwargs = {}
         if store_id == "file" and "root" not in store_kwargs:
@@ -66,12 +67,10 @@ class XcubeDataStoreStorage(Storage):
             data_ids = self.store.list_data_ids()
 
             if data_id in data_ids:
-                LOG.info(f"Data id {data_id} already exists in the xcube fil"
-                            f"e data store. Using cached data.")
+                LOG.info(f"Data id {data_id} already exists in the xcube data store. Using cached data.")
                 return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
             LOG.info(
-                f"Data id {data_id} does not exist in the xcube fil"
-                f"e data store. Writing to it."
+                f"Data id {data_id} does not exist in the xcube data store. Writing to it."
             )
             self.store.write_data(obj, data_id)
             return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
