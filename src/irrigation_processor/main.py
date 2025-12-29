@@ -3,36 +3,18 @@ from pathlib import Path
 
 import yaml
 from dask.distributed import Client, LocalCluster
-from pydantic import create_model
+from pydantic import create_model, ConfigDict
 from graphviz import Source
 
-from irrigation_processor.pipeline import XcubeDataStoreStorage
-from src.irrigation_processor.pipeline import FileStorage, LocalService, Pipeline
-from src.irrigation_processor.steps import registry
-
-
-def _inject_dynamic_context_from_config(config: dict, registry):
-
-    base_cfg = config.get("base", {})
-
-    for step_name, step_cfg in config.items():
-        if step_name == "base":
-            continue
-
-        step_meta = registry.get(step_name)
-
-        if not step_meta:
-            raise ValueError(f"Step not found: {step_name}")
-
-        merged_cfg = {**base_cfg, **step_cfg}
-
-        config_model = create_model(
-            f"{step_name.capitalize()}Config",
-            **{k: (type(v), v) for k, v in merged_cfg.items()},
-        )
-
-        context_obj = config_model(**merged_cfg)
-        step_meta.context_cls = lambda obj=context_obj: obj
+from irrigation_processor.core import (
+    XcubeDataStoreStorage,
+    StepRegistry,
+    LocalService,
+    Pipeline
+)
+from irrigation_processor.steps import registry
+from irrigation_processor.utils import inject_dynamic_context_from_config
+from irrigation_processor.constants import LOG
 
 def execute_pipeline(config_file: Path,
                  disable_steps: list[str]=None):
@@ -47,9 +29,10 @@ def execute_pipeline(config_file: Path,
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
-    _inject_dynamic_context_from_config(config, registry)
-
     storage = XcubeDataStoreStorage()
+
+    inject_dynamic_context_from_config(config, registry, storage)
+
     service = LocalService(storage=storage, use_cache=True)
     p = Pipeline(service=service, pipeline_name="irrigation_estimates")
 
@@ -61,27 +44,15 @@ def execute_pipeline(config_file: Path,
     src.render("pipeline", format="png", view=True)
 
     state = p.run()
-    print("State metadata:\n", json.dumps(state, indent=2))
+    LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
 
 
 if __name__ == "__main__":
-    # cluster = LocalCluster(n_workers=4, threads_per_worker=2)
-    # client = Client(cluster)
-    disabled_steps = ["calibration", "simulation"]
     config_path = Path("config.yml")
     execute_pipeline(
         config_file=config_path,
-        # disable_steps=disabled_steps
     )
 
 # TODO:
-#  Meet with Norman
-#  Allow to choose which step to run, list steps, etc. [DONE]
-#  Add ./pipeline_cache/{step}.json as cache of each step (every run will
-#   overwrite?) to allow running any step instead of full pipeline for
-#   debugging (if possible) [DONE]
-#  depends_on should also factor into building the graph [DONE]
-#  Add Typer CLI to list pipelines, steps, execute
-#  Add config.yml and use that to create the context [DONE]
 #  Add tests
 #  Add documentation

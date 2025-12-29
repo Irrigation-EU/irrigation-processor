@@ -6,63 +6,67 @@ from geopandas import GeoDataFrame
 from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
 from xcube.core.geom import mask_dataset_by_geometry
-from xcube.core.store import new_data_store
+from xcube.core.store import new_data_store, DataStore
 from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
 from irrigation_processor.constants import (
-    INPUT_DIR,
+    OUTPUT_DIR,
     INPUT_FOR_CALIBRATION_ID,
     PROCESSED_CLMS_DATA_ID,
-    logger,
+    LOG,
 )
 from irrigation_processor.utils import convert_m_to_mm
 
-store = new_data_store("file", root=INPUT_DIR)
-
+# store = new_data_store("file", root=OUTPUT_DIR)
 
 def irrigation_preprocessor(
-    context: BaseModel, sm_cube: xr.Dataset, lc_cube: xr.Dataset,
+    context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset,
         era5_data_id: str) -> xr.Dataset:
 
+    store: DataStore = context.store
     data_ids = store.list_data_ids()
 
     if INPUT_FOR_CALIBRATION_ID in data_ids:
-        logger.info(
+        LOG.info(
             "Irrigation inputs are already preprocessed with "
             f"data_id: {INPUT_FOR_CALIBRATION_ID}"
         )
-        return {"preprocessed_path": f"{INPUT_DIR}/{INPUT_FOR_CALIBRATION_ID}"}
+        return store.open_data(INPUT_FOR_CALIBRATION_ID)
 
-    # TODO: Use the paths provided to create the store and data_ids
-
-    spatial_mask_path = context.spatial_mask_path
-
-    gdf = gpd.read_file(spatial_mask_path)
-
-    preprocessed_sm = _soil_moisture_preprocessor(context, sm_cube)
+    preprocessed_sm = _soil_moisture_preprocessor(context, sm_data_id)
     preprocessed_lc = _land_cover_preprocessor(context, lc_cube)
     preprocessed_era5 = _era5_preprocessor(context, era5_data_id)
 
-    merged_ds = _merge(preprocessed_sm, preprocessed_lc, preprocessed_era5, gdf)
+    merged_ds = _resample_and_merge(preprocessed_sm, preprocessed_lc,
+                                    preprocessed_era5)
 
-    logger.info("preprocessing complete...")
+    LOG.info("preprocessing complete...")
+
+    # here we return the dataset as is. So, we can to
+    # specify it in the output section of the registry for this step with a
+    # name that needs to be used by downstream tasks. If no output is
+    # described, it will be stored under the name `results.zarr`
     return merged_ds
 
 
-def _soil_moisture_preprocessor(context: BaseModel, clms_data:
-xr.Dataset) -> xr.Dataset:
+def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> (
+        xr.Dataset):
+    store: DataStore = context.store
     data_ids = store.list_data_ids()
     if PROCESSED_CLMS_DATA_ID in data_ids:
-        logger.info(f"CLMS processed data already exists at {INPUT_DIR}"
+        LOG.info(f"CLMS processed data already exists at {OUTPUT_DIR}"
                     f"/{PROCESSED_CLMS_DATA_ID}")
         return store.open_data(PROCESSED_CLMS_DATA_ID)
 
+    clms_data = store.open_data(sm_data_id)
     bbox = context.bbox
 
     # Interpolation
     full_time = pd.date_range(
-        start=clms_data.time.min().item(), end=clms_data.time.max().item(), freq="D"
+        start=clms_data.time.min().item(),
+        end=clms_data.time.max().item(),
+        freq="D",
     )
     clms_data = clms_data.reindex(time=full_time)
     clms_data = clms_data.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
@@ -73,18 +77,17 @@ xr.Dataset) -> xr.Dataset:
         coords={"time": clms_data.time},
     )
 
-    clms_data_chunked = clms_data.chunk({"time": -1})
-
-    sm_filled = clms_data_chunked["ssm"].interpolate_na(dim="time", method="linear")
+    sm_filled = clms_data["ssm"].interpolate_na(dim="time", method="linear")
 
     sm_clipped = sm_filled.clip(max=100)
 
-    sm_normalized = (sm_clipped - sm_clipped.min()) / (
-        sm_clipped.max() - sm_clipped.min()
+    sm_normalized = (
+            (sm_clipped - sm_clipped.min(dim="time")) /
+            (sm_clipped.max(dim="time") - sm_clipped.min(dim="time"))
     )
 
     SWI = xr.apply_ufunc(
-        swicomp_nan,
+        _swicomp_nan,
         sm_normalized,
         julian_dates,
         input_core_dims=[["time"], ["time"]],
@@ -99,12 +102,12 @@ xr.Dataset) -> xr.Dataset:
 
     SWI = chunk_dataset(SWI, chunk_sizes={"time": -1, "lat": 128, "lon": 128})
 
-    logger.info("preprocessed soil moisture...")
+    LOG.info("preprocessed soil moisture...")
 
     return SWI.to_dataset(name="SWI")
 
 
-def swicomp_nan(in_data, in_jd, ctime=2):
+def _swicomp_nan(in_data, in_jd, ctime=2):
     filtered = np.empty(len(in_data))
     gain = 1
     filtered.fill(np.nan)
@@ -141,33 +144,28 @@ def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> (
     filtered_lc = lc_subset.lccs_class.where(lc_subset["lccs_class"].isin(keep_classes))
 
     keep_classes_np = np.array(keep_classes, dtype=filtered_lc.dtype)
-    logger.info("preprocessed land cover...")
+    LOG.info("preprocessed land cover...")
 
     return filtered_lc.isin(keep_classes_np).astype("uint8")
 
 
 def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> (
         xr.Dataset):
+    store: DataStore = context.store
     cds_cube = store.open_data(cds_data_id)
 
     cds_cube["pev"] = cds_cube["pev"] * -1
+    cds_cube["pev"] = convert_m_to_mm(cds_cube["pev"])
+    cds_cube["tp"] = convert_m_to_mm(cds_cube["tp"])
 
-    pev_daily = cds_cube["pev"].resample(time="1D").last()
-    tp_daily = cds_cube["tp"].resample(time="1D").last()
-
-    cds_cube_daily = xr.merge([pev_daily, tp_daily])
-
-    cds_cube_daily["pev"] = convert_m_to_mm(cds_cube_daily["pev"])
-    cds_cube_daily["tp"] = convert_m_to_mm(cds_cube_daily["tp"])
-    logger.info("preprocessed era5...")
-
-    return cds_cube_daily
+    LOG.info("preprocessed era5...")
+    return cds_cube
 
 
-def _merge(
-    soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset, gdf: GeoDataFrame
+def _resample_and_merge(
+    soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset
 ) -> xr.Dataset:
-    logger.info("merging...")
+    LOG.info("resampling...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
 
     cds_in_gm_sm = resample_in_space(era5, target_gm=gm_sm)
@@ -180,27 +178,17 @@ def _merge(
     )
     lc_in_gm_sm = lc_in_gm_sm.drop_vars("time")
 
-    # mask ebro basin
-    cds_masked_full = cds_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
-    cds_masked = mask_dataset_by_geometry(cds_masked_full, gdf.geometry[0])
+    cds_masked = cds_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
+    soil_moisture_masked = soil_moisture.where(lc_in_gm_sm.lc_binary == 1)
 
-    soil_moisture_masked_full = soil_moisture.where(lc_in_gm_sm.lc_binary == 1)
-    soil_moisture_masked = mask_dataset_by_geometry(
-        soil_moisture_masked_full, gdf.geometry[0]
-    )
+    cds_masked_aligned = cds_masked.assign_coords(time=soil_moisture_masked.time)
 
-    soil_moisture_chunked = chunk_dataset(
-        soil_moisture_masked, chunk_sizes={"time": -1, "lat": 128, "lon": 128}
-    )
-    cds_chunked = chunk_dataset(
-        cds_masked, chunk_sizes={"time": -1, "lat": 128, "lon": 128}
-    )
-
-    ds_combined = xr.merge([soil_moisture_chunked, cds_chunked, lc_in_gm_sm])
+    LOG.info("merging...")
+    ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned])
 
     chunked_ds = chunk_dataset(
         ds_combined,
-        chunk_sizes={"time": -1, "lat": 128, "lon": 128},
+        chunk_sizes={"time": -1, "lat": 50, "lon": 50},
         format_name="zarr",
     )
 
