@@ -129,7 +129,7 @@ def _swicomp_nan(in_data, in_jd, ctime=2):
 
 
 def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> (
-        xr.Dataset):
+        xr.DataArray):
     bbox = context.bbox
     lc_subset = lc.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
 
@@ -163,7 +163,7 @@ def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> (
 
 
 def _resample_and_merge(
-    soil_moisture: xr.Dataset, lc: xr.Dataset, era5: xr.Dataset
+    soil_moisture: xr.Dataset, lc: xr.DataArray, era5: xr.Dataset
 ) -> xr.Dataset:
     LOG.info("resampling...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
