@@ -11,7 +11,6 @@ from irrigation_processor.constants import (
     CLMS_DATA_ID,
     ERA5_DATA_ID,
     LC_DATA_ID,
-    OUTPUT_DIR,
 )
 from irrigation_processor.ops.dataloader import (
     load_data,
