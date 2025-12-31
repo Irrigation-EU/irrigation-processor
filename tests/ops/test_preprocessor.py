@@ -5,7 +5,6 @@ import xarray as xr
 import unittest
 from unittest.mock import Mock, patch
 
-from xcube_resampling.gridmapping import GridMapping
 
 from irrigation_processor.ops.preprocessor import (
     irrigation_preprocessor,
