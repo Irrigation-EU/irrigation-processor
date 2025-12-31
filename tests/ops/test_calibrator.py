@@ -14,6 +14,9 @@ from irrigation_processor.ops.calibrator import (
     soil_moisture_inversion_calibration,
 )
 
+class DummyContext:
+    def __init__(self, store):
+        self.store = store
 
 def make_calibrated_ds():
     return xr.Dataset(
@@ -150,16 +153,14 @@ class TestCalibrator(unittest.TestCase):
         out = calib_wrapper(sm, p_obs, et, NN=1)
         self.assertTrue(np.allclose(out, [1, 2, 3, 4]))
 
-    @patch("irrigation_processor.ops.calibrator.new_data_store")
-    def test_calibration_cached(self, mock_store):
+    def test_calibration_cached(self):
         store = Mock()
         store.list_data_ids.return_value = [CALIBRATED_ID]
         store.open_data.return_value = xr.Dataset(
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}
         )
-        mock_store.return_value = store
 
-        ctx = Mock()
+        ctx = DummyContext(store)
         ctx.check_calibration = False
 
         result = soil_moisture_inversion_calibration(
@@ -169,10 +170,8 @@ class TestCalibrator(unittest.TestCase):
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
 
     @patch("irrigation_processor.ops.calibrator.xr.apply_ufunc")
-    @patch("irrigation_processor.ops.calibrator.new_data_store")
     def test_calibration_flow(
         self,
-        mock_store,
         mock_apply,
     ):
         store = Mock()
@@ -185,7 +184,7 @@ class TestCalibrator(unittest.TestCase):
         store.open_data.return_value = xr.Dataset(
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}
         )
-        mock_store.return_value = store
+        ctx = DummyContext(store)
 
         mock_apply.return_value = xr.DataArray(
             np.zeros((1, 1, 4)),
@@ -201,7 +200,6 @@ class TestCalibrator(unittest.TestCase):
             coords={"time": pd.to_datetime(("2020-01-01", "2020-01-02"))},
         )
 
-        ctx = Mock()
         ctx.mask_months = [1]
         ctx.rainfall_threshold = 0.1
         ctx.check_calibration = False
@@ -215,18 +213,15 @@ class TestCalibrator(unittest.TestCase):
         self.assertEqual(written_ds.sizes["params"], 4)
 
     @patch("irrigation_processor.ops.calibrator.LOG")
-    @patch("irrigation_processor.ops.calibrator.new_data_store")
     def test_cached_calibration_with_check(
         self,
-        mock_new_store,
         mock_log,
     ):
         store = Mock()
         store.list_data_ids.return_value = [CALIBRATED_ID]
         store.open_data.return_value = make_calibrated_ds()
-        mock_new_store.return_value = store
 
-        ctx = Mock()
+        ctx = DummyContext(store)
         ctx.check_calibration = True
 
         result = soil_moisture_inversion_calibration(

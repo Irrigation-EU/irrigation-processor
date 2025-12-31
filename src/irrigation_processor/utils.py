@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 
 from pydantic import ConfigDict, create_model
 
-from irrigation_processor.core.pipeline import StepRegistry, XcubeDataStoreStorage
+from irrigation_processor.core import XcubeDataStoreStorage
+from irrigation_processor.core.pipeline import StepRegistry
 
 
 def split_date_range(start_date, end_date, num_days=30):
