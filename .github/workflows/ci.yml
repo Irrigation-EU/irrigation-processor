@@ -28,7 +28,7 @@ jobs:
         run: pixi add python=${{ matrix.python-version }} --no-install
 
       - name: Install environment
-        run: pixi install -all
+        run: pixi install --all
 
       - name: Ruff check src
         run: pixi run ruff check src/
