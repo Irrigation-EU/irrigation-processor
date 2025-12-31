@@ -55,10 +55,11 @@ isort = ">=6.0.1,<7"
 pytest = ">=8.4.1,<9"
 pytest-cov = ">=6.2.1,<7"
 mypy = "*"
-graphviz = ">=13.1.2,<14"
+graphviz = ">=14.1.0,<15"
 typer = ">=0.19.2,<0.20"
 libgdal-netcdf = ">=3.10.3,<4"
 pixi-pycharm = ">=0.0.10,<0.0.11"
+python-dotenv = ">=1.2.1,<2"
 
 
 [tool.pixi.tasks]
