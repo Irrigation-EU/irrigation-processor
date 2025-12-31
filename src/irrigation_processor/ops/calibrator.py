@@ -17,7 +17,7 @@ from irrigation_processor.constants import (
 def soil_moisture_inversion_calibration(
     context: BaseModel, preprocessed_data: xr.Dataset, dask_client
 ) -> dict:
-    store = new_data_store("file", root=OUTPUT_DIR)
+    store = context.store
     data_ids = store.list_data_ids()
     if CALIBRATED_ID in data_ids:
         LOG.info(f"Calibrated data already exists at {OUTPUT_DIR}"
@@ -98,7 +98,15 @@ def soil_moisture_inversion_calibration(
     return {"calibrated_data_id": CALIBRATED_ID}
 
 
-def sm_inversion(sm, et, a, b, z, RF, thr=None):
+def sm_inversion(
+        sm: np.ndarray,
+        et: np.ndarray,
+        a: float,
+        b: float,
+        z: float,
+        RF: float,
+        thr: float | None=None
+):
     """Evotranspiration and Soil moisture to irrigation"""
     # sm - soil moisture
     # et - evotranspiration
@@ -118,7 +126,14 @@ def sm_inversion(sm, et, a, b, z, RF, thr=None):
 
 
 def calib_sm_inversion(
-    sm, p_obs, et, NN, x0=None, bounds=None, options=None, method="TNC"
+        sm: np.ndarray,
+        p_obs: np.ndarray,
+        et: np.ndarray,
+        NN: int,
+        x0: np.ndarray=None,
+        bounds: tuple=None,
+        options: dict=None,
+        method: str="TNC"
 ):
     if x0 is None:
         x0 = np.array([20.0, 5.0, 80, 1.0])
@@ -127,7 +142,7 @@ def calib_sm_inversion(
         bounds = ((0, 200), (0.01, 50), (1, 800), (0.1, 1.4))
 
     if options is None:
-        options = {"ftol": 1e-8, "maxfun": 4, "disp": False}
+        options = {"ftol": 1e-8, "maxfun": 4000, "disp": False}
 
     result = minimize(
         cost_fun,
@@ -143,7 +158,13 @@ def calib_sm_inversion(
     return a, b, z, RF
 
 
-def cost_fun(x0, sm, p_obs, et, NN):
+def cost_fun(
+        x0: np.ndarray,
+        sm: np.ndarray,
+        p_obs: np.ndarray,
+        et: np.ndarray,
+        NN: int
+):
     # The following args are 1D time-series
     p_sim = sm_inversion(sm, et, x0[0], x0[1], x0[2], x0[3])
     p_obs = p_obs[:-1]
@@ -159,7 +180,11 @@ def cost_fun(x0, sm, p_obs, et, NN):
     return rmsd
 
 
-def calib_wrapper(sm_ts, p_obs_ts, et_ts, NN):
+def calib_wrapper(
+        sm_ts: np.ndarray,
+        p_obs_ts: np.ndarray,
+        et_ts: np.ndarray,
+        NN: int):
     if np.isnan(np.nanmean(sm_ts)):
         return np.array([np.nan, np.nan, np.nan, np.nan])
 

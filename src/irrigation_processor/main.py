@@ -1,8 +1,10 @@
 import json
+import os
 from pathlib import Path
 
 import yaml
 from dask.distributed import Client, LocalCluster
+from dotenv import load_dotenv
 from pydantic import create_model, ConfigDict
 from graphviz import Source
 
@@ -15,6 +17,8 @@ from irrigation_processor.core import (
 from irrigation_processor.steps import registry
 from irrigation_processor.utils import inject_dynamic_context_from_config
 from irrigation_processor.constants import LOG
+
+load_dotenv()
 
 def execute_pipeline(config_file: Path,
                  disable_steps: list[str]=None):
@@ -52,7 +56,3 @@ if __name__ == "__main__":
     execute_pipeline(
         config_file=config_path,
     )
-
-# TODO:
-#  Add tests
-#  Add documentation

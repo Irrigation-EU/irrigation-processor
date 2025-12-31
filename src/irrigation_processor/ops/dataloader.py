@@ -116,14 +116,20 @@ def _get_cds_data(context: BaseModel) -> str:
         store.delete_data("era5_chunked.zarr")
     else:
         if store.protocol == "s3":
+            LOG.info("Using S3 storage")
             storage_options = {
                 "anon": False,
-                "key": os.getenv("AWS_ACCESS_KEY_ID"),
-                "secret": os.getenv("AWS_SECRET_ACCESS_KEY"),
+                "key": os.getenv("XCUBE_AWS_ACCESS_KEY_ID"),
+                "secret": os.getenv("XCUBE_AWS_SECRET_ACCESS_KEY"),
+                "client_kwargs": {
+                    "endpoint_url": os.getenv("XCUBE_AWS_ENDPOINT_URL")
+                }
             }
+            target_path = f"s3://{os.getenv("XCUBE_BUCKET_NAME")}/{ERA5_DATA_ID}"
         else:
+            LOG.info("Using file storage")
             storage_options = {}
-        target_path = f"{OUTPUT_DIR}/{ERA5_DATA_ID}"
+            target_path = f"{OUTPUT_DIR}/{ERA5_DATA_ID}"
         total_time_steps = sum(ds.sizes["time"] for ds in datasets)
         config = {
             "target_dir": target_path,
@@ -221,16 +227,19 @@ def _get_clms_data(context: BaseModel) -> str:
     ]
     total_time_steps = sum(ds.sizes["time"] for ds in datasets)
 
-    target_path = f"{OUTPUT_DIR}/{CLMS_DATA_ID}"
-
     if store.protocol == "s3":
+        LOG.info("Using S3 storage")
         storage_options = {
             "anon": False,
-            "key": os.getenv("AWS_ACCESS_KEY_ID"),
-            "secret": os.getenv("AWS_SECRET_ACCESS_KEY"),
+            "key": os.getenv("XCUBE_AWS_ACCESS_KEY_ID"),
+            "secret": os.getenv("XCUBE_AWS_SECRET_ACCESS_KEY"),
+            "client_kwargs": {"endpoint_url": os.getenv("XCUBE_AWS_ENDPOINT_URL")},
         }
+        target_path = f"s3://{os.getenv('XCUBE_BUCKET_NAME')}/{CLMS_DATA_ID}"
     else:
+        LOG.info("Using file storage")
         storage_options = {}
+        target_path = f"{OUTPUT_DIR}/{CLMS_DATA_ID}"
 
     config = {
         "target_dir": target_path,

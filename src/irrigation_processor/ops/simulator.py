@@ -80,7 +80,15 @@ def irrigation_simulator(context: BaseModel,
         "iwu_temporal_estimates": IWU_ESTIMATES_TEMPORAL_ID
     }
 
-def _ts_smet4irr(sm, et, a, b, z, RF, thr=None):
+def _ts_smet4irr(
+        sm: np.ndarray,
+        et: np.ndarray,
+        a: float,
+        b: float,
+        z: float,
+        RF: float,
+        thr: float | None=None
+):
     p_sim = z * (sm[1:] - sm[:-1]) \
           + ((a * sm[1:]**b + a * sm[:-1]**b) / 2.) \
           + ((RF * sm[1:] * et[1:] + RF * sm[:-1] * et[:-1]) / 2.)
