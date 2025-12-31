@@ -22,7 +22,7 @@ classifiers = [
   "Operating System :: Unix",
   "Operating System :: MacOS",
 ]
-requires-python = ">=3.10"
+requires-python = ">3.10"
 
 [build-system]
 build-backend = "hatchling.build"
