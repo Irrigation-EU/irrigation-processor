@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
+
 class StepRegistry:
     def __init__(self):
         self._steps = {}
@@ -15,7 +16,8 @@ class StepRegistry:
         if include_disabled:
             return list(self._steps.values())
         return [
-            step for name, step in self._steps.items()
+            step
+            for name, step in self._steps.items()
             if name not in self._disabled_steps
         ]
 
@@ -95,4 +97,3 @@ class StepMeta:
             f"func_path={self.func_path}, inputs={self.inputs}, "
             f"outputs={self.outputs}, depends_on={self.depends_on}), "
         )
-

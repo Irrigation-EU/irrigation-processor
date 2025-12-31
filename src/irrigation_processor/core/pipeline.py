@@ -1,20 +1,7 @@
-import os
-import json
-import abc
-import inspect
-import pickle
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Callable, Iterable
+from irrigation_processor.constants import LOG
 
-from dask.distributed import Client, LocalCluster
-import xarray as xr
-
-from irrigation_processor.constants import OUTPUT_DIR, LOG, \
-    PIPELINE_RESULTS_CACHE_DIR
 from .service import Service
-from .step import StepMeta, StepRegistry, FromStep
-from .storage import XcubeDataStoreStorage
+from .step import FromStep, StepMeta, StepRegistry
 
 
 class Pipeline:

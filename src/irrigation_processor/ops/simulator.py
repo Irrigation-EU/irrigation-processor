@@ -1,31 +1,33 @@
 import numpy as np
 import xarray as xr
-
 from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
 
-from irrigation_processor.constants import (LOG, OUTPUT_DIR,
-                                            IWU_ESTIMATES_SPATIAL_ID, IWU_ESTIMATES_TEMPORAL_ID)
+from irrigation_processor.constants import (
+    IWU_ESTIMATES_SPATIAL_ID,
+    IWU_ESTIMATES_TEMPORAL_ID,
+    LOG,
+    OUTPUT_DIR,
+)
 
 
-def irrigation_simulator(context: BaseModel,
-                         preprocessed_ds: xr.Dataset,
-                         calibrated_path: str,
-                         dask_client) -> dict:
-    LOG.info(
-        f"simulating rainfall..."
-    )
+def irrigation_simulator(
+    context: BaseModel, preprocessed_ds: xr.Dataset, calibrated_path: str, dask_client
+) -> dict:
+    LOG.info("simulating rainfall...")
 
     store = context.store
     data_ids = store.list_data_ids()
-    if (IWU_ESTIMATES_SPATIAL_ID in data_ids and IWU_ESTIMATES_TEMPORAL_ID in
-            data_ids):
-        LOG.info(f"Simulated data is already available at "
-                 f"{OUTPUT_DIR}/{IWU_ESTIMATES_SPATIAL_ID} and "
-                 f"{OUTPUT_DIR}/{IWU_ESTIMATES_TEMPORAL_ID}"
-                 )
-        return {"iwu_spatial_estimates": IWU_ESTIMATES_SPATIAL_ID,
-                "iwu_temporal_estimates": IWU_ESTIMATES_TEMPORAL_ID}
+    if IWU_ESTIMATES_SPATIAL_ID in data_ids and IWU_ESTIMATES_TEMPORAL_ID in data_ids:
+        LOG.info(
+            f"Simulated data is already available at "
+            f"{OUTPUT_DIR}/{IWU_ESTIMATES_SPATIAL_ID} and "
+            f"{OUTPUT_DIR}/{IWU_ESTIMATES_TEMPORAL_ID}"
+        )
+        return {
+            "iwu_spatial_estimates": IWU_ESTIMATES_SPATIAL_ID,
+            "iwu_temporal_estimates": IWU_ESTIMATES_TEMPORAL_ID,
+        }
 
     calibration = store.open_data(calibrated_path)
 
@@ -42,7 +44,9 @@ def irrigation_simulator(context: BaseModel,
         vectorize=True,
         dask="parallelized",
         output_dtypes=[float],
-        dask_gufunc_kwargs={"output_sizes": {"time2": preprocessed_ds.sizes["time"] - 1}},
+        dask_gufunc_kwargs={
+            "output_sizes": {"time2": preprocessed_ds.sizes["time"] - 1}
+        },
     )
 
     psim2 = psim.rename({"time2": "time"})
@@ -50,10 +54,10 @@ def irrigation_simulator(context: BaseModel,
     psim2 = psim2.assign_coords(time=time_coord)
     psim2 = psim2.transpose("time", "lat", "lon")
 
-    tp_except_last_timestamp = preprocessed_ds['tp'].isel(time=slice(0, -1))
+    tp_except_last_timestamp = preprocessed_ds["tp"].isel(time=slice(0, -1))
 
-    tp_weekly = _resample_sum(tp_except_last_timestamp, step=7) # 7 days
-    psim2_weekly = _resample_sum(psim2, step=7) # 7 days
+    tp_weekly = _resample_sum(tp_except_last_timestamp, step=7)  # 7 days
+    psim2_weekly = _resample_sum(psim2, step=7)  # 7 days
 
     IRR = psim2_weekly - tp_weekly
     IRR_clipped = IRR.clip(0, 1000)
@@ -74,33 +78,37 @@ def irrigation_simulator(context: BaseModel,
     )
     store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=True)
 
-    LOG.info(f"simulation complete...")
-    return  {
+    LOG.info("simulation complete...")
+    return {
         "iwu_spatial_estimates": IWU_ESTIMATES_SPATIAL_ID,
-        "iwu_temporal_estimates": IWU_ESTIMATES_TEMPORAL_ID
+        "iwu_temporal_estimates": IWU_ESTIMATES_TEMPORAL_ID,
     }
 
+
 def _ts_smet4irr(
-        sm: np.ndarray,
-        et: np.ndarray,
-        a: float,
-        b: float,
-        z: float,
-        RF: float,
-        thr: float | None=None
+    sm: np.ndarray,
+    et: np.ndarray,
+    a: float,
+    b: float,
+    z: float,
+    RF: float,
+    thr: float | None = None,
 ):
-    p_sim = z * (sm[1:] - sm[:-1]) \
-          + ((a * sm[1:]**b + a * sm[:-1]**b) / 2.) \
-          + ((RF * sm[1:] * et[1:] + RF * sm[:-1] * et[:-1]) / 2.)
+    p_sim = (
+        z * (sm[1:] - sm[:-1])
+        + ((a * sm[1:] ** b + a * sm[:-1] ** b) / 2.0)
+        + ((RF * sm[1:] * et[1:] + RF * sm[:-1] * et[:-1]) / 2.0)
+    )
 
     p_sim[abs(np.diff(sm)) <= 0.001] = 0.0
     p_sim[p_sim < 1.0] = 0.0
     return np.clip(p_sim, 0, thr)
 
+
 def _resample_sum(dataarray: xr.DataArray, step: int) -> xr.DataArray:
     data = dataarray.values
     steps = dataarray.time.size // step
-    data = data[:steps*step, :, :]
+    data = data[: steps * step, :, :]
     data = data.reshape(steps, step, dataarray.sizes["lat"], dataarray.sizes["lon"])
     data_sum = data.sum(axis=1)
     return xr.DataArray(

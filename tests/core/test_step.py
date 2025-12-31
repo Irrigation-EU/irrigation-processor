@@ -46,7 +46,6 @@ class TestStepRegistry(unittest.TestCase):
 
         self.assertIn("No step named", str(ctx.exception))
 
-
     def test_disable_and_enable_step(self):
         meta = StepMeta(func=dummy_func)
         self.registry.register(meta)
@@ -73,7 +72,6 @@ class TestStepRegistry(unittest.TestCase):
 
         all_steps = self.registry.all(include_disabled=True)
         self.assertEqual(all_steps, [meta])
-
 
     def test_step_decorator_without_arguments(self):
         @self.registry.step

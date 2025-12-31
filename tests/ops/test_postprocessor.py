@@ -5,22 +5,25 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from irrigation_processor.constants import \
-    IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID, \
-    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID
+from irrigation_processor.constants import (
+    IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
+    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
+)
 from irrigation_processor.ops import postprocessor
-from irrigation_processor.ops.postprocessor import _do_spatial_masking, \
-    _do_temporal_masking
+from irrigation_processor.ops.postprocessor import (
+    _do_spatial_masking,
+    _do_temporal_masking,
+)
 
 
 def make_iwu_ds():
     time = pd.date_range("2020-01-01", periods=3, freq="M")
     return xr.Dataset(
         {
-            "iwu_est": (("time", "lat", "lon"),
-                        [[[10, 0], [5, 20]],
-                         [[30, 0], [10, 40]],
-                         [[0, 0], [0, 50]]]),
+            "iwu_est": (
+                ("time", "lat", "lon"),
+                [[[10, 0], [5, 20]], [[30, 0], [10, 40]], [[0, 0], [0, 50]]],
+            ),
         },
         coords={
             "time": time,
@@ -32,19 +35,15 @@ def make_iwu_ds():
 
 def make_mask_ds():
     return xr.Dataset(
-        {
-            "band_1": (("y", "x"),
-                    [[1.0, 0.0],
-                      [1.0, 1.0]])
-        },
+        {"band_1": (("y", "x"), [[1.0, 0.0], [1.0, 1.0]])},
         coords={
             "y": [5, 4],
             "x": [5, 6],
         },
     )
 
-class TestPostprocessor(unittest.TestCase):
 
+class TestPostprocessor(unittest.TestCase):
     def test_postprocessor_cached(self):
         store = Mock()
         store.list_data_ids.return_value = [
@@ -65,10 +64,8 @@ class TestPostprocessor(unittest.TestCase):
         self.assertEqual(
             result,
             {
-                "iwu_postprocessed_spatial_path":
-                    IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-                "iwu_postprocessed_temporal_path":
-                    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
+                "iwu_postprocessed_spatial_path": IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
+                "iwu_postprocessed_temporal_path": IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
             },
         )
 
@@ -103,8 +100,8 @@ class TestPostprocessor(unittest.TestCase):
 
         out_spatial, out_temporal = _do_spatial_masking(ctx, spatial, temporal)
 
-        self.assertTrue(np.isnan(out_spatial["iwu_est"].sel(lat=5,lon=6)).all())
-        self.assertTrue((out_spatial["iwu_est"].sel(lat=4, lon=5).values >0).any())
+        self.assertTrue(np.isnan(out_spatial["iwu_est"].sel(lat=5, lon=6)).all())
+        self.assertTrue((out_spatial["iwu_est"].sel(lat=4, lon=5).values > 0).any())
 
     @patch("irrigation_processor.ops.postprocessor._do_spatial_masking")
     @patch("irrigation_processor.ops.postprocessor._do_temporal_masking")

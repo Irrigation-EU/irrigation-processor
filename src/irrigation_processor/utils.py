@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 
-from pydantic import create_model, ConfigDict
+from pydantic import ConfigDict, create_model
 
-from irrigation_processor.core.pipeline import StepRegistry, \
-    XcubeDataStoreStorage
+from irrigation_processor.core.pipeline import StepRegistry, XcubeDataStoreStorage
 
 
 def split_date_range(start_date, end_date, num_days=30):
@@ -42,8 +41,9 @@ def convert_m_to_mm(dataarray, update_long_name=True):
     return converted
 
 
-def inject_dynamic_context_from_config(config: dict, registry: StepRegistry,
-                                        storage: XcubeDataStoreStorage):
+def inject_dynamic_context_from_config(
+    config: dict, registry: StepRegistry, storage: XcubeDataStoreStorage
+):
     steps = registry.all()
 
     unknown_steps = set(config) - {"base"} - set([step.name for step in steps])

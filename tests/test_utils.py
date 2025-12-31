@@ -14,7 +14,6 @@ from irrigation_processor.utils import (
 
 
 class TestSplitDateRange(unittest.TestCase):
-
     def test_split_date_range_with_datetime(self):
         start = datetime(2023, 1, 1)
         end = datetime(2023, 1, 31)
@@ -49,7 +48,6 @@ class TestSplitDateRange(unittest.TestCase):
 
 
 class TestConvertMToMM(unittest.TestCase):
-
     def test_convert_with_existing_long_name(self):
         data = DataArray(
             1.5,
@@ -99,7 +97,6 @@ class DummyStepMeta:
 
 
 class TestInjectDynamicContextFromConfig(unittest.TestCase):
-
     def setUp(self):
         self.step1 = DummyStepMeta("step1")
         self.step2 = DummyStepMeta("step2")

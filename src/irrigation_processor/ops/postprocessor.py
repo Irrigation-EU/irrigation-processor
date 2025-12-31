@@ -1,9 +1,9 @@
-import zipfile
 import io
+import zipfile
+
 import requests
 import rioxarray as rxr
 import xarray as xr
-
 from xcube_resampling import resample_in_space
 from xcube_resampling.gridmapping import GridMapping
 
@@ -14,26 +14,21 @@ from irrigation_processor.constants import (
 )
 
 
-def postprocessor(
-    context,
-    iwu_spatial_path: str,
-    iwu_temporal_path: str,
-    dask_client
-):
+def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_client):
     store = context.store
     data_ids = store.list_data_ids()
-    if (IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID in data_ids and
-            IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID in data_ids):
+    if (
+        IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID in data_ids
+        and IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID in data_ids
+    ):
         LOG.info(
             "Irrigation inputs are already postprocessed with "
             f"data_ids: {IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID} and "
             f"{IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID}"
         )
         return {
-        "iwu_postprocessed_spatial_path":
-            IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-        "iwu_postprocessed_temporal_path":
-            IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID
+            "iwu_postprocessed_spatial_path": IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
+            "iwu_postprocessed_temporal_path": IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
         }
 
     iwu_spatial = store.open_data(iwu_spatial_path)
@@ -42,17 +37,18 @@ def postprocessor(
     iwu_spatial_masked, iwu_temporal_masked = _do_temporal_masking(
         context, iwu_spatial, iwu_temporal
     )
-    filtered_spatial, filtered_temporal = _do_spatial_masking(context,
-                                                            iwu_spatial_masked, iwu_temporal_masked)
+    filtered_spatial, filtered_temporal = _do_spatial_masking(
+        context, iwu_spatial_masked, iwu_temporal_masked
+    )
 
     store.write_data(filtered_spatial, IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID)
     store.write_data(filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
 
     return {
-        "iwu_postprocessed_spatial_path":
-            IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-        "iwu_postprocessed_temporal_path": IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID
+        "iwu_postprocessed_spatial_path": IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
+        "iwu_postprocessed_temporal_path": IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
     }
+
 
 def _get_spatial_mask(context) -> xr.Dataset:
     url = context.spatial_mask_zip_url
@@ -99,15 +95,13 @@ def _do_spatial_masking(
     gm_it = GridMapping.from_dataset(iwu_temporal)
 
     ds_in_gm_is = resample_in_space(
-        spatial_mask_subset,
-        target_gm=gm_is,
-        interp_methods=1)
+        spatial_mask_subset, target_gm=gm_is, interp_methods=1
+    )
     ds_in_gm_is = ds_in_gm_is.rename({"band_1": "mask"})
 
     ds_in_gm_it = resample_in_space(
-        spatial_mask_subset,
-        target_gm=gm_it,
-        interp_methods=1)
+        spatial_mask_subset, target_gm=gm_it, interp_methods=1
+    )
     ds_in_gm_it = ds_in_gm_it.rename({"band_1": "mask"})
     filtered_spatial = (
         iwu_spatial["iwu_est"].where(ds_in_gm_is["mask"] > threshold).squeeze()

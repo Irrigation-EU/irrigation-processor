@@ -4,18 +4,19 @@ import time
 
 import xarray as xr
 from pydantic import BaseModel
-from xcube.core.store import new_data_store, DataStore
 from xcube.core.chunk import chunk_dataset
+from xcube.core.store import DataStore, new_data_store
 from zappend.api import zappend
 
 from irrigation_processor.constants import (
     CLMS_DATA_ID,
     ERA5_DATA_ID,
-    OUTPUT_DIR,
     LC_DATA_ID,
     LOG,
+    OUTPUT_DIR,
 )
 from irrigation_processor.utils import split_date_range
+
 
 def load_data(context: BaseModel) -> dict:
     LOG.info("loading data...")
@@ -77,18 +78,15 @@ def _get_cds_data(context: BaseModel) -> str:
         )
 
     all_data_ids = store.list_data_ids()
-    data_ids = sorted([data_id for data_id in all_data_ids
-                       if (f"{CDS_SUBDIR}/" in data_id)])
+    data_ids = sorted(
+        [data_id for data_id in all_data_ids if (f"{CDS_SUBDIR}/" in data_id)]
+    )
 
     def get_dataset(data_id: str):
         ds = store.open_data(data_id)
         ds = ds.drop_vars(["expver", "number"])
-        pev_daily = (
-            ds["pev"].resample(time="1D").mean()
-        )
-        tp_daily = (
-            ds["tp"].resample(time="1D").mean()
-        )
+        pev_daily = ds["pev"].resample(time="1D").mean()
+        tp_daily = ds["tp"].resample(time="1D").mean()
         ### Do we need to take mean() or last() instead, ask Jacopo???
 
         merged_ds = xr.merge([pev_daily, tp_daily])
@@ -121,11 +119,9 @@ def _get_cds_data(context: BaseModel) -> str:
                 "anon": False,
                 "key": os.getenv("XCUBE_AWS_ACCESS_KEY_ID"),
                 "secret": os.getenv("XCUBE_AWS_SECRET_ACCESS_KEY"),
-                "client_kwargs": {
-                    "endpoint_url": os.getenv("XCUBE_AWS_ENDPOINT_URL")
-                }
+                "client_kwargs": {"endpoint_url": os.getenv("XCUBE_AWS_ENDPOINT_URL")},
             }
-            target_path = f"s3://{os.getenv("XCUBE_BUCKET_NAME")}/{ERA5_DATA_ID}"
+            target_path = f"s3://{os.getenv('XCUBE_BUCKET_NAME')}/{ERA5_DATA_ID}"
         else:
             LOG.info("Using file storage")
             storage_options = {}
@@ -190,8 +186,10 @@ def _get_clms_data(context: BaseModel) -> str:
                     "daily-surface-soil-moisture-v1.0", time_range=_time_range
                 )
 
-                filename = (f"{CLMS_SUBDIR}/clms_sm-{_time_range[0].replace('-', '_')}"
-                            f"-{_time_range[1].replace('-', '_')}.zarr")
+                filename = (
+                    f"{CLMS_SUBDIR}/clms_sm-{_time_range[0].replace('-', '_')}"
+                    f"-{_time_range[1].replace('-', '_')}.zarr"
+                )
                 clms_data = clms_data.rename({"x": "lon", "y": "lat"})
 
                 LOG.info("Writing data...")
@@ -216,15 +214,11 @@ def _get_clms_data(context: BaseModel) -> str:
         return ds
 
     all_data_ids = store.list_data_ids()
-    data_ids = sorted([data_id for data_id in all_data_ids if f"{CLMS_SUBDIR}/"
-                       in data_id])
+    data_ids = sorted(
+        [data_id for data_id in all_data_ids if f"{CLMS_SUBDIR}/" in data_id]
+    )
     datasets = []
-    [
-        datasets.append(
-            store.open_data(data_id)
-        )
-        for data_id in sorted(data_ids)
-    ]
+    [datasets.append(store.open_data(data_id)) for data_id in sorted(data_ids)]
     total_time_steps = sum(ds.sizes["time"] for ds in datasets)
 
     if store.protocol == "s3":
@@ -270,8 +264,7 @@ def _get_lc_data(context: BaseModel) -> xr.Dataset:
     store: DataStore = context.store
     data_ids = store.list_data_ids()
     if LC_DATA_ID in data_ids:
-        LOG.info(f"LandCover data already exists at {OUTPUT_DIR}"
-                    f"/{LC_DATA_ID}")
+        LOG.info(f"LandCover data already exists at {OUTPUT_DIR}/{LC_DATA_ID}")
         return store.open_data(LC_DATA_ID)
     LOG.info("Downloading LandCover dataset from S3...")
     time = context.lc_time
