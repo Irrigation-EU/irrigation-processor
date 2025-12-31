@@ -15,9 +15,6 @@ from irrigation_processor.constants import (
 )
 from irrigation_processor.utils import convert_m_to_mm
 
-# store = new_data_store("file", root=OUTPUT_DIR)
-
-
 def irrigation_preprocessor(
     context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset, era5_data_id: str
 ) -> xr.Dataset:
@@ -39,10 +36,10 @@ def irrigation_preprocessor(
 
     LOG.info("preprocessing complete...")
 
-    # here we return the dataset as is. So, we can to
+    # here we return the dataset as is. So, we can
     # specify it in the output section of the registry for this step with a
     # name that needs to be used by downstream tasks. If no output is
-    # described, it will be stored under the name `results.zarr`
+    # described, it will raise an error.
     return merged_ds
 
 

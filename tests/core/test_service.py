@@ -184,7 +184,7 @@ class TestService(unittest.TestCase):
         )
 
         self.assertEqual(result["step1"]["out"]["value"], 1)
-        self.assertEqual(result["step2"]["step2_result"]["value"], 2)
+        self.assertEqual(result["step2"]["result"]["value"], 2)
 
     @patch("irrigation_processor.core.service.Client")
     @patch("irrigation_processor.core.service.LocalCluster")
