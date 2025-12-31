@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import Mock, patch
 
@@ -238,7 +239,7 @@ class TestDataLoader(unittest.TestCase):
         mock_new_store.return_value = cds_store
 
         self.store.open_data.return_value = ds
-
+        os.environ["XCUBE_BUCKET_NAME"] = "test-bucket"
         result = _get_cds_data(self.context)
 
         self.assertEqual(result, ERA5_DATA_ID)
@@ -246,7 +247,7 @@ class TestDataLoader(unittest.TestCase):
         mock_zappend.assert_called_once()
 
         config = mock_zappend.call_args.kwargs["config"]
-        self.assertEqual(config["target_dir"], f"{OUTPUT_DIR}/{ERA5_DATA_ID}")
+        self.assertEqual(config["target_dir"], f"s3://test-bucket/{ERA5_DATA_ID}")
         self.assertIn("target_storage_options", config)
 
         storage_opts = config["target_storage_options"]
@@ -399,6 +400,7 @@ class TestDataLoader(unittest.TestCase):
 
         self.store.open_data.return_value = ds
 
+        os.environ["XCUBE_BUCKET_NAME"] = "test-bucket"
         result = _get_clms_data(self.context)
 
         self.assertEqual(result, CLMS_DATA_ID)
@@ -406,7 +408,8 @@ class TestDataLoader(unittest.TestCase):
 
         config = mock_zappend.call_args.kwargs["config"]
 
-        self.assertEqual(config["target_dir"], f"{OUTPUT_DIR}/{CLMS_DATA_ID}")
+        self.assertEqual(config["target_dir"], f"s3://test-bucket"
+                                               f"/{CLMS_DATA_ID}")
         self.assertIn("target_storage_options", config)
 
         storage_opts = config["target_storage_options"]
