@@ -13,7 +13,6 @@ class TestExecutePipeline(unittest.TestCase):
             execute_pipeline(fake_path)
 
     @patch("irrigation_processor.main.registry")
-    @patch("irrigation_processor.main.Source")
     @patch("irrigation_processor.main.Pipeline")
     @patch("irrigation_processor.main.LocalService")
     @patch("irrigation_processor.main.inject_dynamic_context_from_config")
@@ -24,7 +23,6 @@ class TestExecutePipeline(unittest.TestCase):
         mock_inject,
         mock_service_cls,
         mock_pipeline_cls,
-        mock_source_cls,
         mock_registry,
     ):
         tmp_dir = Path.cwd() / ".tmp_test_pipeline"
@@ -39,12 +37,8 @@ class TestExecutePipeline(unittest.TestCase):
 
         try:
             pipeline = Mock()
-            pipeline.visualize_dot.return_value = "digraph {}"
             pipeline.run.return_value = {"status": "ok"}
             mock_pipeline_cls.return_value = pipeline
-
-            source = Mock()
-            mock_source_cls.return_value = source
 
             execute_pipeline(config_file)
 
@@ -55,10 +49,7 @@ class TestExecutePipeline(unittest.TestCase):
             mock_pipeline_cls.assert_called_once()
 
             pipeline.add_steps_from_registry.assert_called_once()
-            pipeline.visualize_dot.assert_called_once()
             pipeline.run.assert_called_once()
-
-            source.render.assert_called_once_with("pipeline", format="png", view=True)
 
             execute_pipeline(
                 config_file=config_file,

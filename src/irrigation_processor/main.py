@@ -3,7 +3,6 @@ from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from graphviz import Source
 
 from irrigation_processor.constants import LOG
 from irrigation_processor.core import LocalService, Pipeline, XcubeDataStoreStorage
@@ -34,9 +33,9 @@ def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
     p.add_steps_from_registry(registry)
 
     # render dag
-    dot_str = p.visualize_dot()
-    src = Source(dot_str)
-    src.render("pipeline", format="png", view=True)
+    # dot_str = p.visualize_dot()
+    # src = graphviz.Source(dot_str)
+    # src.render("pipeline", format="png", view=True)
 
     state = p.run()
     LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
