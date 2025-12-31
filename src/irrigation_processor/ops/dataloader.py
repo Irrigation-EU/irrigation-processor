@@ -28,18 +28,21 @@ def load_data(context: BaseModel) -> dict:
     LOG.info("data loaded...")
     return {
         "sm_data_id": sm_data_id,
-        # the below two items that are returned are actual xarray datasets
-        # which are then handled by the framework to write it to and load
-        # from the disk. The downstream tasks can refer to this outputs using
-        # FromTask("dataloader", CLMS_DATA_ID). What this would do is that
+        # the below item that is returned is actual xarray dataset
+        # which is then handled by the framework to write it to and load
+        # from the disk. The downstream tasks can refer to this output using
+        # FromTask("dataloader", LC_DATA_ID). What this would do is that
         # internally, this would store the data and pass the stored paths,
         # but to the user it looks like we are passing Datasets directly.
-        # This makes it Airflow compatible.
+        # This makes it Airflow compatible as well whilst making the steps
+        # modular by storing the intermediate results.
         LC_DATA_ID: lc_cube,
         "era5_data_id": era5_data_id,  # Here, we can pass
-        # a string as key that its dependencies must refer to when they want
-        # to use this output as their input in FromTask class. e.g. FromTask(
-        # "dataloader", "era5_data_id").
+        # a string (which is the data_id of this dataset, writing of this
+        # dataset is handled by this function itself) as well as key that its
+        # dependencies must refer to when they want to use this output as
+        # their input in FromTask class. e.g.
+        # FromTask("dataloader", "era5_data_id").
     }
 
 

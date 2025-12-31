@@ -8,12 +8,13 @@
 
 
 Irrigation Processor is a scientific Python package for estimating irrigation 
-water use (IWU) from soil moisture, meteorological variables, and land-cover 
+water use (IWU) across **Europe** from soil moisture, meteorological variables, and land-cover 
 data using a reproducible, multi-step processing pipeline.
 
 The package is designed for large-scale geospatial analysis, supports caching 
 and restartability.
 
+This package was developed for the Irrigation-EU project funded by ESA.
 
 ## Overview
 

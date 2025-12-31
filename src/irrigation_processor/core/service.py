@@ -21,46 +21,6 @@ class Service:
         """Execute steps in given order. Returns state with outputs."""
         raise NotImplementedError
 
-
-class LocalService(Service):
-    def run(
-        self,
-        pipeline_name: str,
-        order: list[str],
-        steps: dict[str, StepMeta],
-    ):
-        LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
-        for step_name in order:
-            step_meta = steps[step_name]
-            LOG.info(f"Running step: {step_name}")
-
-            resolved_args, resolved_kwargs = self._resolve_inputs(
-                step_name, step_meta, self.storage, pipeline_name
-            )
-
-            sig = inspect.signature(step_meta.func)
-            if "dask_client" in sig.parameters:
-                cluster = LocalCluster(
-                    n_workers=4,
-                    threads_per_worker=1,
-                    memory_limit="4GB",
-                )
-                client = Client(cluster)
-                resolved_kwargs["dask_client"] = client
-
-            ctx = step_meta.context_cls() if step_meta.context_cls else None
-
-            result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
-            out_map = self._normalize_outputs(step_name, step_meta, result)
-            self._state[step_name] = out_map
-            LOG.info(f"Step state: {step_name}: {out_map}")
-            save_pipeline_step_state(pipeline_name, step_name, out_map)
-            if "dask_client" in sig.parameters:
-                client.close()
-
-        LOG.info(f"Pipeline run for: {pipeline_name} completed.")
-        return self._state
-
     def _resolve_inputs(self, step_name, meta, storage, pipeline_name):
         resolved_args, resolved_kwargs = [], {}
         if isinstance(meta.inputs, (list, tuple)):
@@ -152,10 +112,47 @@ class LocalService(Service):
         # it with its path instead
         stored_map = {}
         for key, val in out_map.items():
-            if key == "result":
-                key = f"{step_name}_{key}"
             stored_map[key] = self.storage.save(key, val)
         return stored_map
+
+class LocalService(Service):
+    def run(
+        self,
+        pipeline_name: str,
+        order: list[str],
+        steps: dict[str, StepMeta],
+    ):
+        LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
+        for step_name in order:
+            step_meta = steps[step_name]
+            LOG.info(f"Running step: {step_name}")
+
+            resolved_args, resolved_kwargs = self._resolve_inputs(
+                step_name, step_meta, self.storage, pipeline_name
+            )
+
+            sig = inspect.signature(step_meta.func)
+            if "dask_client" in sig.parameters:
+                cluster = LocalCluster(
+                    n_workers=4,
+                    threads_per_worker=1,
+                    memory_limit="4GB",
+                )
+                client = Client(cluster)
+                resolved_kwargs["dask_client"] = client
+
+            ctx = step_meta.context_cls() if step_meta.context_cls else None
+
+            result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
+            out_map = self._normalize_outputs(step_name, step_meta, result)
+            self._state[step_name] = out_map
+            LOG.info(f"Step state: {step_name}: {out_map}")
+            save_pipeline_step_state(pipeline_name, step_name, out_map)
+            if "dask_client" in sig.parameters:
+                client.close()
+
+        LOG.info(f"Pipeline run for: {pipeline_name} completed.")
+        return self._state
 
 
 def save_pipeline_step_state(pipeline_name: str, step_name: str, data: dict) -> str:
