@@ -29,7 +29,6 @@ class DummyStepMeta:
 
 
 class TestService(unittest.TestCase):
-
     def setUp(self):
         self.storage = Mock()
         self.storage.save.side_effect = lambda k, v: {"key": k, "value": v}
@@ -52,7 +51,6 @@ class TestService(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             svc.run("pipeline", [], {})
 
-
     def test_save_and_load_pipeline_step_state(self):
         data = {"a": 1, "b": "c", "d": True}
         path = save_pipeline_step_state("pipe", "step1", data)
@@ -66,10 +64,9 @@ class TestService(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             load_pipeline_step_state("pipe", "missing")
 
-
     def test_normalize_outputs_dict(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=["a", "b"])
+        meta = DummyStepMeta("step", outputs=["a", "b"])
 
         result = {"a": 1, "b": 2}
         out = svc._normalize_outputs("step", meta, result)
@@ -80,14 +77,14 @@ class TestService(unittest.TestCase):
 
     def test_normalize_outputs_dict_key_mismatch_raises(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=["a"])
+        meta = DummyStepMeta("step", outputs=["a"])
 
         with self.assertRaises(ValueError):
             svc._normalize_outputs("step", meta, {"b": 1})
 
     def test_normalize_outputs_tuple(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=["x", "y"])
+        meta = DummyStepMeta("step", outputs=["x", "y"])
 
         out = svc._normalize_outputs("step", meta, (10, 20))
 
@@ -96,14 +93,14 @@ class TestService(unittest.TestCase):
 
     def test_normalize_outputs_tuple_length_mismatch(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=["x", "y"])
+        meta = DummyStepMeta("step", outputs=["x", "y"])
 
         with self.assertRaises(ValueError):
             svc._normalize_outputs("step", meta, (1,))
 
     def test_normalize_outputs_single_value(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=["x"])
+        meta = DummyStepMeta("step", outputs=["x"])
 
         out = svc._normalize_outputs("step", meta, 42)
 
@@ -111,14 +108,14 @@ class TestService(unittest.TestCase):
 
     def test_normalize_outputs_too_many_outputs_raises(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=["x", "y"])
+        meta = DummyStepMeta("step", outputs=["x", "y"])
 
         with self.assertRaises(ValueError):
             svc._normalize_outputs("step", meta, 1)
 
     def test_normalize_outputs_no_outputs_defined_raises(self):
         svc = LocalService(self.storage)
-        meta = DummyStepMeta("step",  outputs=[])
+        meta = DummyStepMeta("step", outputs=[])
 
         with self.assertRaises(ValueError):
             svc._normalize_outputs("step", meta, 1)
@@ -185,7 +182,6 @@ class TestService(unittest.TestCase):
             ["step1", "step2"],
             {"step1": step1, "step2": step2},
         )
-
 
         self.assertEqual(result["step1"]["out"]["value"], 1)
         self.assertEqual(result["step2"]["step2_result"]["value"], 2)

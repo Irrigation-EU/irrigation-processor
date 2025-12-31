@@ -12,11 +12,9 @@ class DummyStepMeta:
 
 
 class TestPipeline(unittest.TestCase):
-
     def setUp(self):
         self.service = Mock()
         self.pipeline = Pipeline(service=self.service, pipeline_name="test_pipeline")
-
 
     def test_add_step_success(self):
         step = DummyStepMeta("step1")
@@ -43,7 +41,6 @@ class TestPipeline(unittest.TestCase):
 
         self.assertEqual(set(self.pipeline.steps.keys()), {"step1", "step2"})
 
-
     def test_build_graph_with_depends_on(self):
         step1 = DummyStepMeta("step1")
         step2 = DummyStepMeta("step2", depends_on=["step1"])
@@ -57,10 +54,7 @@ class TestPipeline(unittest.TestCase):
 
     def test_build_graph_with_fromstep_input(self):
         step1 = DummyStepMeta("step1")
-        step2 = DummyStepMeta(
-            "step2",
-            inputs=[FromStep("step1", "value1")]
-        )
+        step2 = DummyStepMeta("step2", inputs=[FromStep("step1", "value1")])
 
         self.pipeline.add(step1)
         self.pipeline.add(step2)
@@ -113,7 +107,6 @@ class TestPipeline(unittest.TestCase):
 
         self.assertIn("Cycle detected", str(ctx.exception))
 
-
     def test_visualize_dot_output(self):
         step1 = DummyStepMeta("step1")
         step2 = DummyStepMeta("step2", depends_on=["step1"])
@@ -123,11 +116,10 @@ class TestPipeline(unittest.TestCase):
 
         dot = self.pipeline.visualize_dot()
 
-        self.assertIn('digraph pipeline', dot)
+        self.assertIn("digraph pipeline", dot)
         self.assertIn('"step1";', dot)
         self.assertIn('"step2";', dot)
         self.assertIn('"step1" -> "step2";', dot)
-
 
     def test_run_no_steps_returns_none(self):
         result = self.pipeline.run()

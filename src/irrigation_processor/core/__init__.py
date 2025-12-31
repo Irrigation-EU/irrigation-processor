@@ -1,6 +1,6 @@
 from .pipeline import Pipeline
 from .service import LocalService, Service
-from .step import StepRegistry, StepMeta, FromStep
+from .step import FromStep, StepMeta, StepRegistry
 from .storage import XcubeDataStoreStorage
 
 __all__ = [

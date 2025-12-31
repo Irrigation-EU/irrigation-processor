@@ -6,7 +6,7 @@ from typing import Any
 from dask.distributed import Client, LocalCluster
 
 from irrigation_processor.constants import LOG, PIPELINE_RESULTS_CACHE_DIR
-from irrigation_processor.core.step import StepMeta, FromStep
+from irrigation_processor.core.step import FromStep, StepMeta
 from irrigation_processor.core.storage import Storage
 
 
@@ -17,21 +17,18 @@ class Service:
         self._state: dict[str, dict[str, dict[str, Any]]] = {}
         self.use_cache = use_cache
 
-    def run(self,
-            pipeline_name: str,
-            order: list[str],
-            steps: dict[str, StepMeta]
-            ):
+    def run(self, pipeline_name: str, order: list[str], steps: dict[str, StepMeta]):
         """Execute steps in given order. Returns state with outputs."""
         raise NotImplementedError
 
 
 class LocalService(Service):
-    def run(self,
-            pipeline_name: str,
-            order: list[str],
-            steps: dict[str, StepMeta],
-            ):
+    def run(
+        self,
+        pipeline_name: str,
+        order: list[str],
+        steps: dict[str, StepMeta],
+    ):
         LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
         for step_name in order:
             step_meta = steps[step_name]
@@ -49,13 +46,9 @@ class LocalService(Service):
                     memory_limit="4GB",
                 )
                 client = Client(cluster)
-                resolved_kwargs["dask_client"] =  client
+                resolved_kwargs["dask_client"] = client
 
-            ctx = (
-                step_meta.context_cls()
-                if step_meta.context_cls
-                else None
-            )
+            ctx = step_meta.context_cls() if step_meta.context_cls else None
 
             result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
             out_map = self._normalize_outputs(step_name, step_meta, result)
@@ -78,8 +71,7 @@ class LocalService(Service):
                     # check if previous steps results are available in cache
                     if self.use_cache:
                         LOG.info(f"Using cache for args for step: {s}")
-                        state = load_pipeline_step_state(pipeline_name,
-                                                        s)
+                        state = load_pipeline_step_state(pipeline_name, s)
                         resolved_args.append(storage.load(state[k]))
                     # if not using cache, checking if previous steps ran and
                     # expected output exists
@@ -98,8 +90,7 @@ class LocalService(Service):
 
                     # check if previous steps results are available in cache
                     if self.use_cache:
-                        LOG.info(f"Using cache for kwargs for step:"
-                                    f" {s}")
+                        LOG.info(f"Using cache for kwargs for step: {s}")
                         state = load_pipeline_step_state(pipeline_name, s)
                         resolved_kwargs[name] = storage.load(state[k])
 
@@ -115,12 +106,7 @@ class LocalService(Service):
                     resolved_kwargs[name] = inp
         return resolved_args, resolved_kwargs
 
-    def _normalize_outputs(
-            self,
-            step_name: str,
-            meta: StepMeta,
-            result: Any
-    ) -> dict:
+    def _normalize_outputs(self, step_name: str, meta: StepMeta, result: Any) -> dict:
         out_map = {}
 
         if isinstance(result, dict):
@@ -139,22 +125,28 @@ class LocalService(Service):
                 LOG.debug(f"{step_name} | {result} | {type(result)}")
                 if isinstance(result, (list, tuple)):
                     if len(result) != len(meta.outputs):
-                        raise ValueError("The length of the expected outputs: "
-                                         f"{len(meta.outputs)} is not the "
-                                         f"same as the length: {len(result)} of "
-                                         f"retuned iterable by step {step_name}")
+                        raise ValueError(
+                            "The length of the expected outputs: "
+                            f"{len(meta.outputs)} is not the "
+                            f"same as the length: {len(result)} of "
+                            f"retuned iterable by step {step_name}"
+                        )
                     for i, k in enumerate(meta.outputs):
                         out_map[k] = result[i]
                 else:
                     if len(meta.outputs) > 1:
-                        raise ValueError("More outputs specified than the step: "
-                                    f"{step_name} returned:"
-                                    f" {len(meta.outputs)}")
+                        raise ValueError(
+                            "More outputs specified than the step: "
+                            f"{step_name} returned:"
+                            f" {len(meta.outputs)}"
+                        )
                     out_map[meta.outputs[0]] = result
             else:
-                raise ValueError(f"The step {step_name} does not return a "
-                                 f"dict nor the output was defined in the "
-                                 f"decorator.")
+                raise ValueError(
+                    f"The step {step_name} does not return a "
+                    f"dict nor the output was defined in the "
+                    f"decorator."
+                )
 
         # Then store the data if any big data found in this json and replace
         # it with its path instead
@@ -164,7 +156,6 @@ class LocalService(Service):
                 key = f"{step_name}_{key}"
             stored_map[key] = self.storage.save(key, val)
         return stored_map
-
 
 
 def save_pipeline_step_state(pipeline_name: str, step_name: str, data: dict) -> str:
@@ -177,9 +168,11 @@ def save_pipeline_step_state(pipeline_name: str, step_name: str, data: dict) -> 
 
     return file_path
 
+
 def load_pipeline_step_state(pipeline_name: str, step_name: str) -> dict:
-    file_path = os.path.join(PIPELINE_RESULTS_CACHE_DIR, pipeline_name,
-                             f"{step_name}.json")
+    file_path = os.path.join(
+        PIPELINE_RESULTS_CACHE_DIR, pipeline_name, f"{step_name}.json"
+    )
 
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"No saved step found at {file_path}")

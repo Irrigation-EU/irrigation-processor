@@ -10,7 +10,6 @@ from irrigation_processor.core.storage import (
 
 
 class TestStorage(unittest.TestCase):
-
     def test_storage_is_abstract(self):
         with self.assertRaises(TypeError):
             Storage()
@@ -110,9 +109,7 @@ class TestStorage(unittest.TestCase):
 
         storage = XcubeDataStoreStorage()
 
-        result = storage.load(
-            {"inline": False, "data_id": "data1"}
-        )
+        result = storage.load({"inline": False, "data_id": "data1"})
 
         store.open_data.assert_called_once_with("data1")
         self.assertEqual(result, "DATASET")

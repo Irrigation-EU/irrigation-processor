@@ -3,15 +3,8 @@ import xarray as xr
 from pydantic import BaseModel
 from scipy.optimize import minimize
 from xcube.core.chunk import chunk_dataset
-from xcube.core.store import new_data_store
 
-from irrigation_processor.constants import (
-    CALIBRATED_ID,
-    OUTPUT_DIR,
-    INPUT_FOR_CALIBRATION_ID,
-    LOG,
-)
-
+from irrigation_processor.constants import CALIBRATED_ID, LOG, OUTPUT_DIR
 
 
 def soil_moisture_inversion_calibration(
@@ -20,8 +13,7 @@ def soil_moisture_inversion_calibration(
     store = context.store
     data_ids = store.list_data_ids()
     if CALIBRATED_ID in data_ids:
-        LOG.info(f"Calibrated data already exists at {OUTPUT_DIR}"
-                    f"/{CALIBRATED_ID}")
+        LOG.info(f"Calibrated data already exists at {OUTPUT_DIR}/{CALIBRATED_ID}")
         if context.check_calibration:
             calibrated = store.open_data("calibrated.zarr")
             arr_reshaped = calibrated.calibration.values.reshape(-1, 4)
@@ -31,7 +23,9 @@ def soil_moisture_inversion_calibration(
             unique_param_sets_no_nan = unique_param_sets[
                 ~np.isnan(unique_param_sets).any(axis=1)
             ]
-            LOG.info(f"Unique parameter sets without NaNs: {len(unique_param_sets_no_nan)}")
+            LOG.info(
+                f"Unique parameter sets without NaNs: {len(unique_param_sets_no_nan)}"
+            )
         return {"calibrated_data_id": CALIBRATED_ID}
 
     LOG.info(f"calibrating... {context} {preprocessed_data}")
@@ -99,13 +93,13 @@ def soil_moisture_inversion_calibration(
 
 
 def sm_inversion(
-        sm: np.ndarray,
-        et: np.ndarray,
-        a: float,
-        b: float,
-        z: float,
-        RF: float,
-        thr: float | None=None
+    sm: np.ndarray,
+    et: np.ndarray,
+    a: float,
+    b: float,
+    z: float,
+    RF: float,
+    thr: float | None = None,
 ):
     """Evotranspiration and Soil moisture to irrigation"""
     # sm - soil moisture
@@ -126,14 +120,14 @@ def sm_inversion(
 
 
 def calib_sm_inversion(
-        sm: np.ndarray,
-        p_obs: np.ndarray,
-        et: np.ndarray,
-        NN: int,
-        x0: np.ndarray=None,
-        bounds: tuple=None,
-        options: dict=None,
-        method: str="TNC"
+    sm: np.ndarray,
+    p_obs: np.ndarray,
+    et: np.ndarray,
+    NN: int,
+    x0: np.ndarray = None,
+    bounds: tuple = None,
+    options: dict = None,
+    method: str = "TNC",
 ):
     if x0 is None:
         x0 = np.array([20.0, 5.0, 80, 1.0])
@@ -159,11 +153,7 @@ def calib_sm_inversion(
 
 
 def cost_fun(
-        x0: np.ndarray,
-        sm: np.ndarray,
-        p_obs: np.ndarray,
-        et: np.ndarray,
-        NN: int
+    x0: np.ndarray, sm: np.ndarray, p_obs: np.ndarray, et: np.ndarray, NN: int
 ):
     # The following args are 1D time-series
     p_sim = sm_inversion(sm, et, x0[0], x0[1], x0[2], x0[3])
@@ -180,11 +170,7 @@ def cost_fun(
     return rmsd
 
 
-def calib_wrapper(
-        sm_ts: np.ndarray,
-        p_obs_ts: np.ndarray,
-        et_ts: np.ndarray,
-        NN: int):
+def calib_wrapper(sm_ts: np.ndarray, p_obs_ts: np.ndarray, et_ts: np.ndarray, NN: int):
     if np.isnan(np.nanmean(sm_ts)):
         return np.array([np.nan, np.nan, np.nan, np.nan])
 

@@ -14,6 +14,7 @@ from irrigation_processor.ops.calibrator import (
     soil_moisture_inversion_calibration,
 )
 
+
 def make_calibrated_ds():
     return xr.Dataset(
         {

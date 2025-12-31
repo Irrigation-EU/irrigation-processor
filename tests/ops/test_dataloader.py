@@ -32,22 +32,27 @@ class DummyContext(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+
 def make_era5_ds():
     time = pd.date_range("2020-01-01", periods=4, freq="6H")
 
-    pev = np.array([
-        [[1, 2], [3, 4]],
-        [[2, 3], [4, 5]],
-        [[3, 4], [5, 6]],
-        [[4, 5], [6, 7]],
-    ])
+    pev = np.array(
+        [
+            [[1, 2], [3, 4]],
+            [[2, 3], [4, 5]],
+            [[3, 4], [5, 6]],
+            [[4, 5], [6, 7]],
+        ]
+    )
 
-    tp = np.array([
-        [[10, 20], [30, 40]],
-        [[20, 30], [40, 50]],
-        [[30, 40], [50, 60]],
-        [[40, 50], [60, 70]],
-    ])
+    tp = np.array(
+        [
+            [[10, 20], [30, 40]],
+            [[20, 30], [40, 50]],
+            [[30, 40], [50, 60]],
+            [[40, 50], [60, 70]],
+        ]
+    )
 
     return xr.Dataset(
         {
@@ -62,12 +67,14 @@ def make_era5_ds():
             "lon": [5, 6],
         },
     )
+
+
 EXPECTED_PEV = np.array(
-        [
-            [2.5, 3.5],
-            [4.5, 5.5],
-        ]
-    )
+    [
+        [2.5, 3.5],
+        [4.5, 5.5],
+    ]
+)
 
 EXPECTED_TP = np.array(
     [
@@ -75,6 +82,7 @@ EXPECTED_TP = np.array(
         [45.0, 55.0],
     ]
 )
+
 
 def make_daily_era5_ds():
     return xr.Dataset(
@@ -89,18 +97,23 @@ def make_daily_era5_ds():
         },
     )
 
+
 def make_clms_ds():
     time = pd.date_range("2020-01-01", periods=2, freq="1D")
 
-    ssm = np.array([
-        [[0.10, 0.20], [0.30, 0.40]],
-        [[0.20, 0.30], [0.40, 0.50]],
-    ])
+    ssm = np.array(
+        [
+            [[0.10, 0.20], [0.30, 0.40]],
+            [[0.20, 0.30], [0.40, 0.50]],
+        ]
+    )
 
-    ssm_noise = np.array([
-        [[1, 1], [1, 1]],
-        [[1, 1], [1, 1]],
-    ])
+    ssm_noise = np.array(
+        [
+            [[1, 1], [1, 1]],
+            [[1, 1], [1, 1]],
+        ]
+    )
 
     return xr.Dataset(
         {
@@ -273,9 +286,7 @@ class TestDataLoader(unittest.TestCase):
         written_ds = self.store.write_data.call_args_list[-1][0][0]
 
         self.assertEqual(written_ds.sizes["time"], 1)
-        self.assertFalse(
-            np.allclose(written_ds["pev"].values[0], ds["pev"].values[0])
-        )
+        self.assertFalse(np.allclose(written_ds["pev"].values[0], ds["pev"].values[0]))
         np.testing.assert_allclose(
             written_ds["pev"].values[0],
             EXPECTED_PEV,
@@ -286,7 +297,9 @@ class TestDataLoader(unittest.TestCase):
         )
 
         self.assertEqual(result, ERA5_DATA_ID)
-        self.store.write_data.assert_any_call(ds, "era5/era5-2020_01_01-2020_01_02.zarr", replace=True)
+        self.store.write_data.assert_any_call(
+            ds, "era5/era5-2020_01_01-2020_01_02.zarr", replace=True
+        )
 
         calls = self.store.write_data.call_args_list
         chunked_calls = [call for call in calls if call[0][1] == "era5_chunked.zarr"]

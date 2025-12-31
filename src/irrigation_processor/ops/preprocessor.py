@@ -1,29 +1,26 @@
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
-from geopandas import GeoDataFrame
 from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
-from xcube.core.geom import mask_dataset_by_geometry
-from xcube.core.store import new_data_store, DataStore
+from xcube.core.store import DataStore
 from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
 from irrigation_processor.constants import (
-    OUTPUT_DIR,
     INPUT_FOR_CALIBRATION_ID,
-    PROCESSED_CLMS_DATA_ID,
     LOG,
+    OUTPUT_DIR,
+    PROCESSED_CLMS_DATA_ID,
 )
 from irrigation_processor.utils import convert_m_to_mm
 
 # store = new_data_store("file", root=OUTPUT_DIR)
 
-def irrigation_preprocessor(
-    context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset,
-        era5_data_id: str) -> xr.Dataset:
 
+def irrigation_preprocessor(
+    context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset, era5_data_id: str
+) -> xr.Dataset:
     store: DataStore = context.store
     data_ids = store.list_data_ids()
 
@@ -38,8 +35,7 @@ def irrigation_preprocessor(
     preprocessed_lc = _land_cover_preprocessor(context, lc_cube)
     preprocessed_era5 = _era5_preprocessor(context, era5_data_id)
 
-    merged_ds = _resample_and_merge(preprocessed_sm, preprocessed_lc,
-                                    preprocessed_era5)
+    merged_ds = _resample_and_merge(preprocessed_sm, preprocessed_lc, preprocessed_era5)
 
     LOG.info("preprocessing complete...")
 
@@ -50,13 +46,14 @@ def irrigation_preprocessor(
     return merged_ds
 
 
-def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> (
-        xr.Dataset):
+def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Dataset:
     store: DataStore = context.store
     data_ids = store.list_data_ids()
     if PROCESSED_CLMS_DATA_ID in data_ids:
-        LOG.info(f"CLMS processed data already exists at {OUTPUT_DIR}"
-                    f"/{PROCESSED_CLMS_DATA_ID}")
+        LOG.info(
+            f"CLMS processed data already exists at {OUTPUT_DIR}"
+            f"/{PROCESSED_CLMS_DATA_ID}"
+        )
         return store.open_data(PROCESSED_CLMS_DATA_ID)
 
     clms_data = store.open_data(sm_data_id)
@@ -81,9 +78,8 @@ def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> (
 
     sm_clipped = sm_filled.clip(max=100)
 
-    sm_normalized = (
-            (sm_clipped - sm_clipped.min(dim="time")) /
-            (sm_clipped.max(dim="time") - sm_clipped.min(dim="time"))
+    sm_normalized = (sm_clipped - sm_clipped.min(dim="time")) / (
+        sm_clipped.max(dim="time") - sm_clipped.min(dim="time")
     )
 
     SWI = xr.apply_ufunc(
@@ -128,8 +124,7 @@ def _swicomp_nan(in_data, in_jd, ctime=2):
     return filtered
 
 
-def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> (
-        xr.DataArray):
+def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> xr.DataArray:
     bbox = context.bbox
     lc_subset = lc.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
 
@@ -149,8 +144,7 @@ def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> (
     return filtered_lc.isin(keep_classes_np).astype("uint8")
 
 
-def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> (
-        xr.Dataset):
+def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> xr.Dataset:
     store: DataStore = context.store
     cds_cube = store.open_data(cds_data_id)
 
