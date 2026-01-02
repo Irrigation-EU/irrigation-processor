@@ -10,7 +10,6 @@ description = "Processor for generating Irrigation Water Use (IWU) estimates dat
 version = "0.1.0"
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -34,7 +33,6 @@ platforms = ["linux-64"]
 
 [tool.pixi.pypi-dependencies]
 irrigation_processor = { path = ".", editable = true }
-#xcube_clms = { path = "../xcube-clms/", editable = true }
 
 [tool.pixi.dependencies]
 jupyter = ">=1.1.1,<2"
@@ -49,17 +47,17 @@ xcube-resampling = ">=0.1.0,<0.2"
 hvplot = ">=0.12.1,<0.13"
 xarray = ">=2025.9.0,<2026"
 pydantic = ">=2.11.9,<3"
+python-dotenv = ">=1.2.1,<2"
+libgdal-netcdf = ">=3.10.3,<4"
+graphviz = ">=14.1.0,<15"
 # Dev tools
 ruff = ">=0.12.2,<0.13"
 isort = ">=6.0.1,<7"
 pytest = ">=8.4.1,<9"
 pytest-cov = ">=6.2.1,<7"
 mypy = "*"
-graphviz = ">=14.1.0,<15"
 typer = ">=0.19.2,<0.20"
-libgdal-netcdf = ">=3.10.3,<4"
 pixi-pycharm = ">=0.0.10,<0.0.11"
-python-dotenv = ">=1.2.1,<2"
 
 
 [tool.pixi.tasks]

@@ -4615,7 +4615,7 @@ packages:
 - pypi: ./
   name: irrigation-processor
   version: 0.1.0
-  sha256: 63ac9d2f7715b8bd74caed1d548e832dc020501afc7cc925cc00a1890aadfd52
+  sha256: 564fc3e8d5ce82cd13f658268e3a3639468a6468b8c86888859153bdb8744b69
   requires_python: '>3.10'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/isoduration-20.11.0-pyhd8ed1ab_1.conda
