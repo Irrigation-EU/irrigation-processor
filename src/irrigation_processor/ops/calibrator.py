@@ -124,9 +124,9 @@ def calib_sm_inversion(
     p_obs: np.ndarray,
     et: np.ndarray,
     NN: int,
-    x0: np.ndarray = None,
-    bounds: tuple = None,
-    options: dict = None,
+    x0: np.ndarray | None = None,
+    bounds: tuple | None = None,
+    options: dict | None = None,
     method: str = "TNC",
 ):
     if x0 is None:

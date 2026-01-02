@@ -4,11 +4,11 @@ from .step import FromStep, StepMeta, StepRegistry
 from .storage import XcubeDataStoreStorage
 
 __all__ = [
-    Pipeline,
-    XcubeDataStoreStorage,
-    LocalService,
-    Service,
-    StepRegistry,
-    StepMeta,
-    FromStep,
+    "Pipeline",
+    "XcubeDataStoreStorage",
+    "LocalService",
+    "Service",
+    "StepRegistry",
+    "StepMeta",
+    "FromStep",
 ]

@@ -17,7 +17,7 @@ from irrigation_processor.constants import (
 )
 from irrigation_processor.utils import split_date_range
 
-
+# TODO: Maybe use protocol instead of BaseModel?
 def load_data(context: BaseModel) -> dict:
     LOG.info("loading data...")
 
