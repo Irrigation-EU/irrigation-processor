@@ -169,10 +169,8 @@ class TestCalibrator(unittest.TestCase):
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
 
-    @patch("irrigation_processor.ops.calibrator.xr.apply_ufunc")
     def test_calibration_flow(
         self,
-        mock_apply,
     ):
         store = Mock()
         store.list_data_ids.side_effect = [
@@ -185,11 +183,6 @@ class TestCalibrator(unittest.TestCase):
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}
         )
         ctx = DummyContext(store)
-
-        mock_apply.return_value = xr.DataArray(
-            np.zeros((1, 1, 4)),
-            dims=("lat", "lon", "params"),
-        )
 
         pre = xr.Dataset(
             {
@@ -207,7 +200,6 @@ class TestCalibrator(unittest.TestCase):
         result = soil_moisture_inversion_calibration(ctx, pre, dask_client=None)
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
-        mock_apply.assert_called_once()
 
         written_ds = store.write_data.call_args_list[-1][0][0]
         self.assertEqual(written_ds.sizes["params"], 4)
