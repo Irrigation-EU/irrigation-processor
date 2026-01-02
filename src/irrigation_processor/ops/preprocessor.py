@@ -15,6 +15,7 @@ from irrigation_processor.constants import (
 )
 from irrigation_processor.utils import convert_m_to_mm
 
+
 def irrigation_preprocessor(
     context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset, era5_data_id: str
 ) -> xr.Dataset:

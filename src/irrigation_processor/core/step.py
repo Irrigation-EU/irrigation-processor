@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Iterable, Sequence, Any, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 
 @dataclass
@@ -10,8 +10,10 @@ class FromStep:
     def to_dict(self) -> dict:
         return {"step": self.step, "key": self.key}
 
+
 InputValue = Any | FromStep
 Inputs = Sequence[InputValue] | Mapping[str, InputValue]
+
 
 class StepRegistry:
     def __init__(self):
@@ -73,6 +75,7 @@ class StepRegistry:
         if func is None:
             return decorator
         return decorator(func)
+
 
 class StepMeta:
     def __init__(
