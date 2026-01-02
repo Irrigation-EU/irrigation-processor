@@ -1,6 +1,17 @@
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Sequence, Any, Mapping
 
+
+@dataclass
+class FromStep:
+    step: str
+    key: str
+
+    def to_dict(self) -> dict:
+        return {"step": self.step, "key": self.key}
+
+InputValue = Any | FromStep
+Inputs = Sequence[InputValue] | Mapping[str, InputValue]
 
 class StepRegistry:
     def __init__(self):
@@ -41,9 +52,9 @@ class StepRegistry:
         func: Callable | None = None,
         /,
         *,
-        inputs: Iterable = (),
-        outputs: Iterable[str] = (),
-        depends_on: tuple[str] = (),
+        inputs: Inputs = (),
+        outputs: Sequence[str] = (),
+        depends_on: Sequence[str] = (),
         name: str | None = None,
         context_cls: type | None = None,
     ) -> Callable:
@@ -63,23 +74,13 @@ class StepRegistry:
             return decorator
         return decorator(func)
 
-
-@dataclass
-class FromStep:
-    step: str
-    key: str
-
-    def to_dict(self) -> dict:
-        return {"step": self.step, "key": self.key}
-
-
 class StepMeta:
     def __init__(
         self,
         func: Callable,
-        inputs: Iterable[str] = (),
-        outputs: Iterable[str] = (),
-        depends_on: tuple[str] = (),
+        inputs: Inputs = (),
+        outputs: Sequence[str] = (),
+        depends_on: Sequence[str] = (),
         name: str | None = None,
         context_cls: type | None = None,
     ):
