@@ -115,6 +115,7 @@ class Service:
             stored_map[key] = self.storage.save(key, val)
         return stored_map
 
+
 class LocalService(Service):
     def run(
         self,
