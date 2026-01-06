@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 from irrigation_processor.main import execute_pipeline
 

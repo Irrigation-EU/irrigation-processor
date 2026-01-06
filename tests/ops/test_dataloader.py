@@ -2,21 +2,17 @@ import os
 import unittest
 from unittest.mock import Mock, patch
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import xarray as xr
 from pydantic import BaseModel, ConfigDict
 
-from irrigation_processor.constants import (
-    CLMS_DATA_ID,
-    ERA5_DATA_ID,
-    LC_DATA_ID,
-)
+from irrigation_processor.constants import CLMS_DATA_ID, ERA5_DATA_ID, LC_DATA_ID
 from irrigation_processor.ops.dataloader import (
-    load_data,
     _get_cds_data,
     _get_clms_data,
     _get_lc_data,
+    load_data,
 )
 
 
@@ -414,8 +410,7 @@ class TestDataLoader(unittest.TestCase):
 
         config = mock_zappend.call_args.kwargs["config"]
 
-        self.assertEqual(config["target_dir"], f"s3://test-bucket"
-                                               f"/{CLMS_DATA_ID}")
+        self.assertEqual(config["target_dir"], f"s3://test-bucket/{CLMS_DATA_ID}")
         self.assertIn("target_storage_options", config)
 
         storage_opts = config["target_storage_options"]

@@ -1,6 +1,5 @@
 import unittest
 from datetime import datetime
-
 from unittest.mock import Mock
 
 import xarray as xr
@@ -8,10 +7,10 @@ import xarray as xr
 from irrigation_processor.core import XcubeDataStoreStorage
 from irrigation_processor.core.pipeline import StepRegistry
 from irrigation_processor.utils import (
-    split_date_range,
     convert_m_to_mm,
-    inject_dynamic_context_from_config,
     get_existing_data,
+    inject_dynamic_context_from_config,
+    split_date_range,
 )
 
 

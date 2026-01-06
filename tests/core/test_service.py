@@ -3,10 +3,7 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from irrigation_processor.core.service import (
-    LocalService,
-    save_pipeline_step_state,
-)
+from irrigation_processor.core.service import LocalService, save_pipeline_step_state
 from irrigation_processor.core.step import FromStep
 
 

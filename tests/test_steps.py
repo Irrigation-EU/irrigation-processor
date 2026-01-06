@@ -4,10 +4,7 @@ import unittest
 import xarray as xr
 from pydantic import BaseModel
 
-from irrigation_processor.constants import (
-    LC_DATA_ID,
-    INPUT_FOR_CALIBRATION_ID,
-)
+from irrigation_processor.constants import INPUT_FOR_CALIBRATION_ID, LC_DATA_ID
 from irrigation_processor.core.pipeline import FromStep
 from irrigation_processor.steps import registry
 
