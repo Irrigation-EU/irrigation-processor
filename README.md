@@ -338,18 +338,21 @@ The output directory for this default data store is `output_irrigation`
 To use the s3 storage, do this in the `main.py`:
 
 ```python
-storage = XcubeDataStoreStorage("s3", store_kwargs= dict(
+storage = XcubeDataStoreStorage(
+    "s3",
+    store_kwargs=dict(
         storage_options=dict(
             anon=False,
-            key= os.getenv("XCUBE_AWS_ACCESS_KEY_ID"),
-            secret= os.getenv("XCUBE_AWS_SECRET_ACCESS_KEY"),
+            key=os.getenv("XCUBE_AWS_ACCESS_KEY_ID"),
+            secret=os.getenv("XCUBE_AWS_SECRET_ACCESS_KEY"),
             client_kwargs=dict(
                 endpoint_url=os.getenv("XCUBE_AWS_ENDPOINT_URL"),
-            )
+            ),
         ),
         root="<your-s3-bucket-name>",
-        max_depth= 5
-    ))
+        max_depth=5,
+    ),
+)
 ```
 
 Make sure you add the AWS creds to the `.env` file in the root folder.
