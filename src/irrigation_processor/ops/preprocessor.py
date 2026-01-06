@@ -13,21 +13,21 @@ from irrigation_processor.constants import (
     OUTPUT_DIR,
     PROCESSED_CLMS_DATA_ID,
 )
-from irrigation_processor.utils import convert_m_to_mm
+from irrigation_processor.utils import convert_m_to_mm, get_existing_data
 
 
 def irrigation_preprocessor(
     context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset, era5_data_id: str
 ) -> xr.Dataset:
     store: DataStore = context.store
-    data_ids = store.list_data_ids()
 
-    if INPUT_FOR_CALIBRATION_ID in data_ids:
-        LOG.info(
-            "Irrigation inputs are already preprocessed with "
-            f"data_id: {INPUT_FOR_CALIBRATION_ID}"
-        )
-        return store.open_data(INPUT_FOR_CALIBRATION_ID)
+    result = get_existing_data(
+        store=store,
+        data_id=INPUT_FOR_CALIBRATION_ID,
+        load=True,
+    )
+    if result is not None:
+        return result
 
     preprocessed_sm = _soil_moisture_preprocessor(context, sm_data_id)
     preprocessed_lc = _land_cover_preprocessor(context, lc_cube)
@@ -46,13 +46,14 @@ def irrigation_preprocessor(
 
 def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Dataset:
     store: DataStore = context.store
-    data_ids = store.list_data_ids()
-    if PROCESSED_CLMS_DATA_ID in data_ids:
-        LOG.info(
-            f"CLMS processed data already exists at {OUTPUT_DIR}"
-            f"/{PROCESSED_CLMS_DATA_ID}"
-        )
-        return store.open_data(PROCESSED_CLMS_DATA_ID)
+
+    result = get_existing_data(
+        store=store,
+        data_id=PROCESSED_CLMS_DATA_ID,
+        load=True,
+    )
+    if result is not None:
+        return result
 
     clms_data = store.open_data(sm_data_id)
     bbox = context.bbox

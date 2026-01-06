@@ -3,7 +3,7 @@ from datetime import datetime
 
 from unittest.mock import Mock
 
-from xarray import DataArray
+import xarray as xr
 
 from irrigation_processor.core import XcubeDataStoreStorage
 from irrigation_processor.core.pipeline import StepRegistry
@@ -11,6 +11,7 @@ from irrigation_processor.utils import (
     split_date_range,
     convert_m_to_mm,
     inject_dynamic_context_from_config,
+    get_existing_data,
 )
 
 
@@ -50,7 +51,7 @@ class TestSplitDateRange(unittest.TestCase):
 
 class TestConvertMToMM(unittest.TestCase):
     def test_convert_with_existing_long_name(self):
-        data = DataArray(
+        data = xr.DataArray(
             1.5,
             attrs={
                 "units": "m",
@@ -70,7 +71,7 @@ class TestConvertMToMM(unittest.TestCase):
         )
 
     def test_convert_without_long_name(self):
-        data = DataArray(2.0, attrs={"units": "m"})
+        data = xr.DataArray(2.0, attrs={"units": "m"})
 
         converted = convert_m_to_mm(data)
 
@@ -81,7 +82,7 @@ class TestConvertMToMM(unittest.TestCase):
         )
 
     def test_convert_without_updating_long_name(self):
-        data = DataArray(
+        data = xr.DataArray(
             1.0,
             attrs={"long_name": "Evaporation", "units": "m"},
         )
@@ -177,3 +178,47 @@ class TestInjectDynamicContextFromConfig(unittest.TestCase):
             )
 
         self.assertIn("Config for step 'step1' must be a dict", str(ctx.exception))
+
+
+class TestGetExistingData(unittest.TestCase):
+    def setUp(self):
+        self.store = Mock()
+        self.data_id = "test-data"
+
+    def test_returns_none_when_data_id_not_in_store(self):
+        self.store.list_data_ids.return_value = []
+
+        result = get_existing_data(
+            store=self.store,
+            data_id=self.data_id,
+            load=False,
+        )
+
+        self.assertIsNone(result)
+        self.store.open_data.assert_not_called()
+
+    def test_returns_data_id_when_exists_and_not_loaded(self):
+        self.store.list_data_ids.return_value = [self.data_id]
+
+        result = get_existing_data(
+            store=self.store,
+            data_id=self.data_id,
+            load=False,
+        )
+
+        self.assertEqual(result, self.data_id)
+        self.store.open_data.assert_not_called()
+
+    def test_returns_dataset_when_exists_and_loaded(self):
+        ds = xr.Dataset()
+        self.store.list_data_ids.return_value = [self.data_id]
+        self.store.open_data.return_value = ds
+
+        result = get_existing_data(
+            store=self.store,
+            data_id=self.data_id,
+            load=True,
+        )
+
+        self.assertIs(result, ds)
+        self.store.open_data.assert_called_once_with(self.data_id)

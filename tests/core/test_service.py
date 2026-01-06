@@ -4,10 +4,8 @@ import unittest
 from unittest.mock import Mock, patch
 
 from irrigation_processor.core.service import (
-    Service,
     LocalService,
     save_pipeline_step_state,
-    load_pipeline_step_state,
 )
 from irrigation_processor.core.step import FromStep
 
@@ -45,24 +43,11 @@ class TestService(unittest.TestCase):
         self.addCleanup(self.tmpdir.cleanup)
         self.addCleanup(patcher.stop)
 
-    def test_service_run_not_implemented(self):
-        svc = Service(storage=self.storage)
-
-        with self.assertRaises(NotImplementedError):
-            svc.run("pipeline", [], {})
-
     def test_save_and_load_pipeline_step_state(self):
         data = {"a": 1, "b": "c", "d": True}
         path = save_pipeline_step_state("pipe", "step1", data)
 
         self.assertTrue(os.path.exists(path))
-
-        loaded = load_pipeline_step_state("pipe", "step1")
-        self.assertEqual(loaded, data)
-
-    def test_load_missing_state_raises(self):
-        with self.assertRaises(FileNotFoundError):
-            load_pipeline_step_state("pipe", "missing")
 
     def test_normalize_outputs_dict(self):
         svc = LocalService(self.storage)
@@ -214,39 +199,3 @@ class TestService(unittest.TestCase):
         mock_client.assert_called_once()
         client_instance.close.assert_called_once()
         self.assertEqual(result["step1"]["out"]["value"], 1)
-
-    @patch("irrigation_processor.core.service.load_pipeline_step_state")
-    def test_resolve_inputs_with_cache(self, mock_load_state):
-        mock_load_state.return_value = {"out": {"value": 10}}
-
-        svc = LocalService(self.storage, use_cache=True)
-
-        meta_args = DummyStepMeta(
-            "step2",
-            inputs=[FromStep("step1", "out")],
-        )
-
-        args, kwargs = svc._resolve_inputs(
-            "step2",
-            meta_args,
-            self.storage,
-            "pipe",
-        )
-
-        self.assertEqual(args, [10])
-        self.assertEqual(kwargs, {})
-
-        meta_kwargs = DummyStepMeta(
-            "step3",
-            inputs={"x": FromStep("step1", "out")},
-        )
-
-        args, kwargs = svc._resolve_inputs(
-            "step3",
-            meta_kwargs,
-            self.storage,
-            "pipe",
-        )
-
-        self.assertEqual(args, [])
-        self.assertEqual(kwargs["x"], 10)

@@ -9,6 +9,7 @@ from irrigation_processor.constants import (
     LOG,
     OUTPUT_DIR,
 )
+from irrigation_processor.utils import get_existing_data
 
 
 def irrigation_simulator(
@@ -17,16 +18,19 @@ def irrigation_simulator(
     LOG.info("simulating rainfall...")
 
     store = context.store
-    data_ids = store.list_data_ids()
-    if IWU_ESTIMATES_SPATIAL_ID in data_ids and IWU_ESTIMATES_TEMPORAL_ID in data_ids:
-        LOG.info(
-            f"Simulated data is already available at "
-            f"{OUTPUT_DIR}/{IWU_ESTIMATES_SPATIAL_ID} and "
-            f"{OUTPUT_DIR}/{IWU_ESTIMATES_TEMPORAL_ID}"
-        )
+
+    result_spatial = get_existing_data(
+        store=store,
+        data_id=IWU_ESTIMATES_SPATIAL_ID,
+    )
+    result_temporal = get_existing_data(
+        store=store,
+        data_id=IWU_ESTIMATES_TEMPORAL_ID,
+    )
+    if result_spatial is not None and result_temporal is not None:
         return {
-            "iwu_spatial_estimates": IWU_ESTIMATES_SPATIAL_ID,
-            "iwu_temporal_estimates": IWU_ESTIMATES_TEMPORAL_ID,
+            "iwu_spatial_estimates": result_spatial,
+            "iwu_temporal_estimates": result_temporal,
         }
 
     calibration = store.open_data(calibrated_path)

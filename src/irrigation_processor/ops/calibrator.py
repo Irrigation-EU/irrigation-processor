@@ -5,15 +5,19 @@ from scipy.optimize import minimize
 from xcube.core.chunk import chunk_dataset
 
 from irrigation_processor.constants import CALIBRATED_ID, LOG, OUTPUT_DIR
+from irrigation_processor.utils import get_existing_data
 
 
 def soil_moisture_inversion_calibration(
     context: BaseModel, preprocessed_data: xr.Dataset, dask_client
 ) -> dict:
     store = context.store
-    data_ids = store.list_data_ids()
-    if CALIBRATED_ID in data_ids:
-        LOG.info(f"Calibrated data already exists at {OUTPUT_DIR}/{CALIBRATED_ID}")
+
+    result = get_existing_data(
+        store=store,
+        data_id=CALIBRATED_ID,
+    )
+    if result is not None:
         if context.check_calibration:
             calibrated = store.open_data("calibrated.zarr")
             arr_reshaped = calibrated.calibration.values.reshape(-1, 4)
@@ -26,11 +30,11 @@ def soil_moisture_inversion_calibration(
             LOG.info(
                 f"Unique parameter sets without NaNs: {len(unique_param_sets_no_nan)}"
             )
-        return {"calibrated_data_id": CALIBRATED_ID}
+        return {"calibrated_data_id": result}
 
     LOG.info(f"calibrating... {context} {preprocessed_data}")
     tp = preprocessed_data["tp"]
-    mask_season = tp["time"].dt.month.isin(context.mask_months)
+    mask_season = tp["time"].dt.month.isin(context.allowed_months)
     masked_tp = tp.where(~(mask_season & (tp < context.rainfall_threshold)))
     LOG.info("data masked")
     result = xr.apply_ufunc(

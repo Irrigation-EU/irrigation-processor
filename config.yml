@@ -17,12 +17,12 @@ calibration:
     time: -1
     lat: 10
     lon: 10
-  mask_months: [5, 6, 7, 8, 9]
+  allowed_months: [5, 6, 7, 8, 9]
   rainfall_threshold: 1.0
   check_calibration: true
 
 postprocessing:
-  temporal_mask_months: [5,6,7,8,9]
+  temporal_allowed_months: [5, 6, 7, 8, 9]
   spatial_mask_zip_url: "https://storage.googleapis.com/fao-maps-catalog-data/geonetwork/aquamaps/gmia_v5_aei_pct_asc.zip"
   spatial_mask_filename: "gmia_v5_aei_pct.asc"
   spatial_mask_bbox: [-12, 34, 51, 73]

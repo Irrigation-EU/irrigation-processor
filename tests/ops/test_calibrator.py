@@ -193,7 +193,7 @@ class TestCalibrator(unittest.TestCase):
             coords={"time": pd.to_datetime(("2020-01-01", "2020-01-02"))},
         )
 
-        ctx.mask_months = [1]
+        ctx.allowed_months = [1]
         ctx.rainfall_threshold = 0.1
         ctx.check_calibration = False
 

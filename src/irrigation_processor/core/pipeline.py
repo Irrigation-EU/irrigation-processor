@@ -1,11 +1,11 @@
 from irrigation_processor.constants import LOG
 
-from .service import Service
+from .service import LocalService
 from .step import FromStep, StepMeta, StepRegistry
 
 
 class Pipeline:
-    def __init__(self, service: Service, pipeline_name: str):
+    def __init__(self, service: LocalService, pipeline_name: str):
         self.steps: dict[str, StepMeta] = {}
         self.service = service
         self.pipeline_name = pipeline_name
@@ -19,7 +19,7 @@ class Pipeline:
         for meta in registry.all():
             self.add(meta)
 
-    def _build_graph(self) -> dict[str, list[str]]:
+    def _build_graph(self) -> dict[str, set[str]]:
         deps: dict[str, set[str]] = {name: set() for name in self.steps}
         for name, meta in self.steps.items():
             deps[name].update(meta.depends_on)
@@ -32,10 +32,10 @@ class Pipeline:
                 if dep not in self.steps:
                     raise ValueError(f"Step '{step}' depends on unknown step '{dep}'")
 
-        return {k: list(v) for k, v in deps.items()}
+        return deps
 
     @staticmethod
-    def _toposort(deps: dict[str, list[str]]) -> list[str]:
+    def _toposort(deps: dict[str, set[str]]) -> set[str]:
         # Kahn's algorithm
         incoming = {n: set(srcs) for n, srcs in deps.items()}
         out = []

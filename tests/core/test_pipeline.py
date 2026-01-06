@@ -50,7 +50,7 @@ class TestPipeline(unittest.TestCase):
 
         graph = self.pipeline._build_graph()
 
-        self.assertEqual(graph, {"step1": [], "step2": ["step1"]})
+        self.assertEqual(graph, {'step1': set(), 'step2': {'step1'}})
 
     def test_build_graph_with_fromstep_input(self):
         step1 = DummyStepMeta("step1")
@@ -61,7 +61,7 @@ class TestPipeline(unittest.TestCase):
 
         graph = self.pipeline._build_graph()
 
-        self.assertEqual(graph, {"step1": [], "step2": ["step1"]})
+        self.assertEqual(graph, {"step1": set(), "step2": {'step1'}})
 
     def test_build_graph_unknown_dependency_raises(self):
         step = DummyStepMeta("step1", depends_on=["missing"])

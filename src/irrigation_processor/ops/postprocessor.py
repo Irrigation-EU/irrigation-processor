@@ -10,25 +10,25 @@ from xcube_resampling.gridmapping import GridMapping
 from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
     IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
-    LOG,
 )
+from irrigation_processor.utils import get_existing_data
 
 
 def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_client):
     store = context.store
-    data_ids = store.list_data_ids()
-    if (
-        IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID in data_ids
-        and IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID in data_ids
-    ):
-        LOG.info(
-            "Irrigation inputs are already postprocessed with "
-            f"data_ids: {IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID} and "
-            f"{IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID}"
-        )
+
+    result_spatial = get_existing_data(
+        store=store,
+        data_id=IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
+    )
+    result_temporal = get_existing_data(
+        store=store,
+        data_id=IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
+    )
+    if result_spatial is not None and result_temporal is not None:
         return {
-            "iwu_postprocessed_spatial_path": IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-            "iwu_postprocessed_temporal_path": IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
+            "iwu_postprocessed_spatial_path": result_spatial,
+            "iwu_postprocessed_temporal_path": result_temporal,
         }
 
     iwu_spatial = store.open_data(iwu_spatial_path)
@@ -67,12 +67,12 @@ def _do_temporal_masking(
     iwu_spatial: xr.Dataset,
     iwu_temporal: xr.Dataset,
 ):
-    temporal_mask_months = context.temporal_mask_months
+    temporal_allowed_months = context.temporal_allowed_months
     iwu_spatial_masked = iwu_spatial.where(
-        iwu_spatial.time.dt.month.isin(temporal_mask_months), 0
+        iwu_spatial.time.dt.month.isin(temporal_allowed_months), 0
     )
     iwu_temporal_masked = iwu_temporal.where(
-        iwu_temporal.time.dt.month.isin(temporal_mask_months), 0
+        iwu_temporal.time.dt.month.isin(temporal_allowed_months), 0
     )
 
     return iwu_spatial_masked, iwu_temporal_masked

@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
 
 from pydantic import ConfigDict, create_model
+import xarray as xr
 
+from irrigation_processor.constants import LOG, OUTPUT_DIR
 from irrigation_processor.core import XcubeDataStoreStorage
 from irrigation_processor.core.pipeline import StepRegistry
 
@@ -72,3 +74,17 @@ def inject_dynamic_context_from_config(
 
         context_obj = config_model(**merged_cfg)
         step_meta.context_cls = lambda obj=context_obj: obj
+
+def get_existing_data(
+    *,
+    store,
+    data_id: str,
+    load: bool = False,
+) -> str | xr.Dataset | None:
+    if data_id not in store.list_data_ids():
+        return None
+
+    if load:
+        return store.open_data(data_id)
+    LOG.info(f"Data already exists at {OUTPUT_DIR}/{data_id}")
+    return data_id

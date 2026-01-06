@@ -161,20 +161,21 @@ class TestDataLoader(unittest.TestCase):
         self.assertEqual(result, ERA5_DATA_ID)
         mock_split.assert_not_called()
 
+    @patch("irrigation_processor.ops.dataloader.get_existing_data")
     @patch("irrigation_processor.ops.dataloader.zappend")
     @patch("irrigation_processor.ops.dataloader.new_data_store")
     def test_get_cds_data_non_optimized(
         self,
         mock_new_store,
         mock_zappend,
+        mock_get_existing_data,
     ):
         self.context.cds_optimize_writing = False
 
         ds = make_era5_ds()
 
-        # store initially empty, then has written chunks
+        mock_get_existing_data.return_value = None
         self.store.list_data_ids.side_effect = [
-            [],  # initial check
             ["era5/part1"],  # after writing chunks
         ]
 
@@ -215,20 +216,21 @@ class TestDataLoader(unittest.TestCase):
             EXPECTED_TP,
         )
 
+    @patch("irrigation_processor.ops.dataloader.get_existing_data")
     @patch("irrigation_processor.ops.dataloader.zappend")
     @patch("irrigation_processor.ops.dataloader.new_data_store")
     def test_get_cds_data_non_optimized_s3(
         self,
         mock_new_store,
         mock_zappend,
+        mock_get_existing_data,
     ):
         self.context.cds_optimize_writing = False
         self.store.protocol = "s3"
 
         ds = make_era5_ds()
-
+        mock_get_existing_data.return_value = None
         self.store.list_data_ids.side_effect = [
-            [],
             ["era5/part1"],
         ]
 
@@ -254,17 +256,18 @@ class TestDataLoader(unittest.TestCase):
         self.assertIn("secret", storage_opts)
         self.assertEqual(storage_opts["anon"], False)
 
+    @patch("irrigation_processor.ops.dataloader.get_existing_data")
     @patch("irrigation_processor.ops.dataloader.new_data_store")
     def test_get_cds_data_optimized(
         self,
         mock_new_store,
+        mock_get_existing_data,
     ):
         self.context.cds_optimize_writing = True
 
         ds = make_era5_ds()
-
+        mock_get_existing_data.return_value = None
         self.store.list_data_ids.side_effect = [
-            [],  # initial check
             ["era5/part1"],
         ]
 
@@ -326,6 +329,7 @@ class TestDataLoader(unittest.TestCase):
 
         self.assertEqual(result, CLMS_DATA_ID)
 
+    @patch("irrigation_processor.ops.dataloader.get_existing_data")
     @patch("irrigation_processor.ops.dataloader.time.sleep")
     @patch("irrigation_processor.ops.dataloader.zappend")
     @patch("irrigation_processor.ops.dataloader.new_data_store")
@@ -336,11 +340,12 @@ class TestDataLoader(unittest.TestCase):
         mock_new_store,
         mock_zappend,
         mock_sleep,
+        mock_get_existing_data,
     ):
         ds = make_clms_ds()
 
+        mock_get_existing_data.return_value = None
         self.store.list_data_ids.side_effect = [
-            [],  # initial check
             ["clms/part1"],  # after writing chunks
         ]
 
@@ -372,6 +377,7 @@ class TestDataLoader(unittest.TestCase):
         self.assertEqual(out_ds["ssm"].dtype, np.float32)
         self.assertEqual(out_ds.sizes["time"], 2)
 
+    @patch("irrigation_processor.ops.dataloader.get_existing_data")
     @patch("irrigation_processor.ops.dataloader.time.sleep")
     @patch("irrigation_processor.ops.dataloader.zappend")
     @patch("irrigation_processor.ops.dataloader.new_data_store")
@@ -382,12 +388,13 @@ class TestDataLoader(unittest.TestCase):
         mock_new_store,
         mock_zappend,
         mock_sleep,
+        mock_get_existing_data,
     ):
         self.store.protocol = "s3"
         ds = make_clms_ds()
 
+        mock_get_existing_data.return_value = None
         self.store.list_data_ids.side_effect = [
-            [],
             ["clms/part1"],
         ]
 
@@ -416,13 +423,12 @@ class TestDataLoader(unittest.TestCase):
         self.assertIn("key", storage_opts)
         self.assertIn("secret", storage_opts)
 
-    def test_get_lc_data_cached(self):
+    @patch("irrigation_processor.ops.dataloader.get_existing_data")
+    def test_get_lc_data_cached(self, mock_get_existing_data):
         ds = xr.Dataset()
-        self.store.list_data_ids.return_value = [LC_DATA_ID]
-        self.store.open_data.return_value = ds
+        mock_get_existing_data.return_value = ds
 
         result = _get_lc_data(self.context)
-
         self.assertIs(result, ds)
 
     @patch("irrigation_processor.ops.dataloader.new_data_store")
