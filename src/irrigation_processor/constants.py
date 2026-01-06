@@ -1,7 +1,16 @@
 import logging
+import sys
 
 logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger("irrigation-processor")
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter(
+    "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+)
+handler.setFormatter(formatter)
+
+LOG.addHandler(handler)
+LOG.propagate = False
 
 # Data ids
 CLMS_DATA_ID = "soil_moisture.zarr"

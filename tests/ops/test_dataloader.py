@@ -23,7 +23,7 @@ from irrigation_processor.ops.dataloader import (
 class DummyContext(BaseModel):
     store: Mock
     time_range: tuple = ("2020-01-01", "2020-01-02")
-    bbox: tuple = (0, 0, 1, 1)
+    bbox: list = [0, 0, 1, 1]
     cds_data_id: str = "era5"
     cds_spatial_res: float = 0.1
     cds_variable_names: list = ["pev", "tp"]
