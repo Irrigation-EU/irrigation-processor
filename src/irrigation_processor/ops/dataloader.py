@@ -15,7 +15,7 @@ from irrigation_processor.constants import (
     LOG,
     OUTPUT_DIR,
 )
-from irrigation_processor.utils import split_date_range, get_existing_data
+from irrigation_processor.utils import get_existing_data, split_date_range
 
 
 # TODO: Maybe use protocol instead of BaseModel?
@@ -299,11 +299,7 @@ def _get_clms_data(context: BaseModel) -> str:
 def _get_lc_data(context: BaseModel) -> xr.Dataset:
     store: DataStore = context.store
 
-    result = get_existing_data(
-        store=store,
-        data_id=LC_DATA_ID,
-        load=True
-    )
+    result = get_existing_data(store=store, data_id=LC_DATA_ID, load=True)
     if result is not None:
         return result
 

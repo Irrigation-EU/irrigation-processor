@@ -10,7 +10,6 @@ from xcube_resampling.spatial import resample_in_space
 from irrigation_processor.constants import (
     INPUT_FOR_CALIBRATION_ID,
     LOG,
-    OUTPUT_DIR,
     PROCESSED_CLMS_DATA_ID,
 )
 from irrigation_processor.utils import convert_m_to_mm, get_existing_data

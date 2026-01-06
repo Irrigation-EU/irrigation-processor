@@ -38,7 +38,7 @@ def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
     # src.render("pipeline", format="png", view=True)
 
     state = p.run()
-    # LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
+    LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
 
 
 if __name__ == "__main__":

@@ -93,6 +93,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py312hd9148b4_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.13.1-py312h8a5da7c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.12-py312hd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cryptography-46.0.3-py312ha4b625e_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cyrus-sasl-2.1.28-hd9c7081_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cytoolz-1.1.0-py312h4c3975b_1.conda
@@ -482,6 +483,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-1.13.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-cci-0.11.10-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-cds-1.1.1-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-clms-1.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-resampling-0.1.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/xerces-c-3.3.0-hd9031aa_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/xkeyboard-config-2.46-hb03c661_0.conda
@@ -507,6 +509,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/xyzservices-2025.11.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/yaml-0.2.5-h280c20c_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/yarl-1.22.0-py312h8a5da7c_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/zappend-0.8.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zarr-2.18.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zeromq-4.3.5-h387f397_9.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zfp-1.0.1-h909a3a2_5.conda
@@ -515,9 +518,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.3.2-hceb46e0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
-      - pypi: https://files.pythonhosted.org/packages/c9/56/e7e69b427c3878352c2fb9b450bd0e19ed552753491d39d7d0a2f5226d41/cryptography-46.0.3-cp311-abi3-manylinux_2_28_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/de/0d/236d3c6ecef57eee7edbafb21c9ae3e2df04dd99bd006a9be223566ab5ea/zappend-0.8.0-py3-none-any.whl
-      - pypi: ../xcube-clms
       - pypi: ./
   irrigation-processor-dev:
     channels:
@@ -612,6 +612,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/contourpy-1.3.3-py312hd9148b4_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/coverage-7.13.1-py312h8a5da7c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cpython-3.12.12-py312hd8ed1ab_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/cryptography-46.0.3-py312ha4b625e_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cyrus-sasl-2.1.28-hd9c7081_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cytoolz-1.1.0-py312h4c3975b_1.conda
@@ -1001,6 +1002,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-1.13.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-cci-0.11.10-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-cds-1.1.1-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-clms-1.3.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-resampling-0.1.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/xerces-c-3.3.0-hd9031aa_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/xkeyboard-config-2.46-hb03c661_0.conda
@@ -1026,6 +1028,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/xyzservices-2025.11.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/yaml-0.2.5-h280c20c_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/yarl-1.22.0-py312h8a5da7c_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/zappend-0.8.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zarr-2.18.7-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zeromq-4.3.5-h387f397_9.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zfp-1.0.1-h909a3a2_5.conda
@@ -1034,9 +1037,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-ng-2.3.2-hceb46e0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb78ec9c_6.conda
-      - pypi: https://files.pythonhosted.org/packages/c9/56/e7e69b427c3878352c2fb9b450bd0e19ed552753491d39d7d0a2f5226d41/cryptography-46.0.3-cp311-abi3-manylinux_2_28_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/de/0d/236d3c6ecef57eee7edbafb21c9ae3e2df04dd99bd006a9be223566ab5ea/zappend-0.8.0-py3-none-any.whl
-      - pypi: ../xcube-clms
       - pypi: ./
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -2214,36 +2214,24 @@ packages:
   purls: []
   size: 45767
   timestamp: 1761175217281
-- pypi: https://files.pythonhosted.org/packages/c9/56/e7e69b427c3878352c2fb9b450bd0e19ed552753491d39d7d0a2f5226d41/cryptography-46.0.3-cp311-abi3-manylinux_2_28_x86_64.whl
-  name: cryptography
-  version: 46.0.3
-  sha256: a2c0cd47381a3229c403062f764160d57d4d175e022c1df84e168c6251a22eec
-  requires_dist:
-  - cffi>=1.14 ; python_full_version == '3.8.*' and platform_python_implementation != 'PyPy'
-  - cffi>=2.0.0 ; python_full_version >= '3.9' and platform_python_implementation != 'PyPy'
-  - typing-extensions>=4.13.2 ; python_full_version < '3.11'
-  - bcrypt>=3.1.5 ; extra == 'ssh'
-  - nox[uv]>=2024.4.15 ; extra == 'nox'
-  - cryptography-vectors==46.0.3 ; extra == 'test'
-  - pytest>=7.4.0 ; extra == 'test'
-  - pytest-benchmark>=4.0 ; extra == 'test'
-  - pytest-cov>=2.10.1 ; extra == 'test'
-  - pytest-xdist>=3.5.0 ; extra == 'test'
-  - pretend>=0.7 ; extra == 'test'
-  - certifi>=2024 ; extra == 'test'
-  - pytest-randomly ; extra == 'test-randomorder'
-  - sphinx>=5.3.0 ; extra == 'docs'
-  - sphinx-rtd-theme>=3.0.0 ; extra == 'docs'
-  - sphinx-inline-tabs ; extra == 'docs'
-  - pyenchant>=3 ; extra == 'docstest'
-  - readme-renderer>=30.0 ; extra == 'docstest'
-  - sphinxcontrib-spelling>=7.3.1 ; extra == 'docstest'
-  - build>=1.0.0 ; extra == 'sdist'
-  - ruff>=0.11.11 ; extra == 'pep8test'
-  - mypy>=1.14 ; extra == 'pep8test'
-  - check-sdist ; extra == 'pep8test'
-  - click>=8.0.1 ; extra == 'pep8test'
-  requires_python: '>=3.8,!=3.9.0,!=3.9.1'
+- conda: https://conda.anaconda.org/conda-forge/linux-64/cryptography-46.0.3-py312ha4b625e_1.conda
+  sha256: 28dd9ae4bf7913a507e08ccd13788f0abe75557831095244e487bda2c474554f
+  md5: a42f7c8a15d53cdb6738ece5bd745d13
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - cffi >=1.14
+  - libgcc >=14
+  - openssl >=3.5.4,<4.0a0
+  - python >=3.12,<3.13.0a0
+  - python_abi 3.12.* *_cp312
+  constrains:
+  - __glibc >=2.17
+  license: Apache-2.0 AND BSD-3-Clause AND PSF-2.0 AND MIT
+  license_family: BSD
+  purls:
+  - pkg:pypi/cryptography?source=hash-mapping
+  size: 1716814
+  timestamp: 1764805537696
 - conda: https://conda.anaconda.org/conda-forge/noarch/cycler-0.12.1-pyhcf101f3_2.conda
   sha256: bb47aec5338695ff8efbddbc669064a3b10fe34ad881fb8ad5d64fbfa6910ed1
   md5: 4c2a8fef270f6c69591889b93f9f55c1
@@ -3364,7 +3352,7 @@ packages:
 - pypi: ./
   name: irrigation-processor
   version: 0.1.0
-  sha256: 9d6b2bb6ad7d9764a74f58470d4cc7f5dc14cd68f2428f3d4714d1e1c564b869
+  sha256: 93ec44e0488a7208ebae1e45a94cdd233cea873a78f52307d44fcf02d874cf47
   requires_python: '>3.10'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/isoduration-20.11.0-pyhd8ed1ab_1.conda
@@ -7992,31 +7980,28 @@ packages:
   - pkg:pypi/xcube-cds?source=hash-mapping
   size: 45430
   timestamp: 1765902724784
-- pypi: ../xcube-clms
-  name: xcube-clms
-  version: 1.3.1.dev0
-  sha256: 32b78862793ab1f0c3b2c885b865d21e8f36708e6bba1fec1ae712a5ddd417f4
-  requires_dist:
+- conda: https://conda.anaconda.org/conda-forge/noarch/xcube-clms-1.3.0-pyhd8ed1ab_0.conda
+  sha256: d28f6f67481e84fa717faa92ad945132031e73378ea9c971bdd8b592acf14ea6
+  md5: a530e88083ef4096884abf4913c2d227
+  depends:
+  - boto3 1.37.3
+  - cryptography
+  - fsspec
+  - h5netcdf
+  - ipywidgets
+  - libgdal-netcdf
+  - python >=3.10
+  - python-dotenv
   - requests
   - xarray
-  - xcube>=1.9.0
-  - ipywidgets
-  - cryptography
-  - requests
-  - fsspec
+  - xcube >=1.9.0
   - zappend
-  - h5netcdf
-  - python-dotenv
-  - boto3==1.37.3
-  - numpy ; extra == 'dev'
-  - pytest ; extra == 'dev'
-  - ruff ; extra == 'dev'
-  - black ; extra == 'dev'
-  - flake8 ; extra == 'dev'
-  - pytest-cov ; extra == 'dev'
-  - pytest-recording ; extra == 'dev'
-  requires_python: '>=3.10'
-  editable: true
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/xcube-clms?source=hash-mapping
+  size: 32249
+  timestamp: 1766517531528
 - conda: https://conda.anaconda.org/conda-forge/noarch/xcube-resampling-0.1.1-pyhd8ed1ab_0.conda
   sha256: 7cd242d505002fbb9d71220b03b4f75ab8f8663302d1bc31d01a608f38e405c2
   md5: 3f2bdc74cb626cf86491f22b9e7eb1ea
@@ -8345,34 +8330,26 @@ packages:
   - pkg:pypi/yarl?source=hash-mapping
   size: 151549
   timestamp: 1761337128623
-- pypi: https://files.pythonhosted.org/packages/de/0d/236d3c6ecef57eee7edbafb21c9ae3e2df04dd99bd006a9be223566ab5ea/zappend-0.8.0-py3-none-any.whl
-  name: zappend
-  version: 0.8.0
-  sha256: 029181570968bae00c160842aab483defa7941813e0e2e3d9a08fdccc903d77f
-  requires_dist:
+- conda: https://conda.anaconda.org/conda-forge/noarch/zappend-0.8.0-pyhd8ed1ab_1.conda
+  sha256: 1c9a50f753fce772ddd51af97e196983ac20c14d3000933a5a97916d98f278c0
+  md5: b1d4586b68ab077a31175528ebc7de1a
+  depends:
   - click
-  - dask
+  - dask-core
   - fsspec
   - jsonschema
   - numcodecs
   - numpy
+  - python >=3.10
   - pyyaml
   - xarray
-  - zarr
-  - pytest ; extra == 'dev'
-  - pytest-cov ; extra == 'dev'
-  - black ; extra == 'dev'
-  - flake8 ; extra == 'dev'
-  - flake8-bugbear ; extra == 'dev'
-  - h5netcdf ; extra == 'dev'
-  - s3fs ; extra == 'dev'
-  - scipy ; extra == 'dev'
-  - pyproj ; extra == 'dev'
-  - mkdocs ; extra == 'doc'
-  - mkdocs-material ; extra == 'doc'
-  - mkdocstrings ; extra == 'doc'
-  - mkdocstrings-python ; extra == 'doc'
-  requires_python: '>=3.10'
+  - zarr <3.0a0
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/zappend?source=hash-mapping
+  size: 43878
+  timestamp: 1733839989175
 - conda: https://conda.anaconda.org/conda-forge/noarch/zarr-2.18.7-pyhd8ed1ab_0.conda
   sha256: 7f906b5a746aff5ee918fff815767848ae428f0d9cf4bd8e48640a3a759e4d01
   md5: 209c3560e2eddfcb0bc769c659674dfa
