@@ -59,8 +59,13 @@ def _get_cds_data(context: BaseModel) -> str:
 
     time_range = context.time_range
     bbox = context.bbox
-    data_id = context.cds_data_id
     spatial_res = context.cds_spatial_res
+    bbox[0] = bbox[0] - spatial_res
+    bbox[1] = bbox[1] - spatial_res
+    bbox[2] = bbox[2] + spatial_res
+    bbox[3] = bbox[3] + spatial_res
+
+    data_id = context.cds_data_id
     variables_name = context.cds_variable_names
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
