@@ -112,7 +112,6 @@ class TestPostprocessor(unittest.TestCase):
         mock_spatial,
         mock_get_existing_data,
     ):
-
         mock_get_existing_data.side_effect = [None, None]
         store = Mock()
         store.open_data.side_effect = [

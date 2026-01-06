@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -7,16 +7,18 @@ import xarray as xr
 
 from irrigation_processor.constants import CALIBRATED_ID
 from irrigation_processor.ops.calibrator import (
-    sm_inversion,
-    cost_fun,
     calib_sm_inversion,
     calib_wrapper,
+    cost_fun,
+    sm_inversion,
     soil_moisture_inversion_calibration,
 )
+
 
 class DummyContext:
     def __init__(self, store):
         self.store = store
+
 
 def make_calibrated_ds():
     return xr.Dataset(

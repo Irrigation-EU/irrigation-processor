@@ -1,22 +1,18 @@
+import unittest
+from unittest.mock import Mock, patch
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 
-import unittest
-from unittest.mock import Mock, patch
-
-
+from irrigation_processor.constants import PROCESSED_CLMS_DATA_ID
 from irrigation_processor.ops.preprocessor import (
-    irrigation_preprocessor,
-    _soil_moisture_preprocessor,
-    _land_cover_preprocessor,
     _era5_preprocessor,
-    _swicomp_nan,
+    _land_cover_preprocessor,
     _resample_and_merge,
-)
-from irrigation_processor.constants import (
-    INPUT_FOR_CALIBRATION_ID,
-    PROCESSED_CLMS_DATA_ID,
+    _soil_moisture_preprocessor,
+    _swicomp_nan,
+    irrigation_preprocessor,
 )
 
 

@@ -3,10 +3,7 @@ from unittest.mock import Mock, patch
 
 import xarray as xr
 
-from irrigation_processor.core.storage import (
-    Storage,
-    XcubeDataStoreStorage,
-)
+from irrigation_processor.core.storage import Storage, XcubeDataStoreStorage
 
 
 class TestStorage(unittest.TestCase):

@@ -2,11 +2,7 @@ import unittest
 
 from pydantic import BaseModel
 
-from irrigation_processor.core.pipeline import (
-    StepRegistry,
-    StepMeta,
-    FromStep,
-)
+from irrigation_processor.core.pipeline import FromStep, StepMeta, StepRegistry
 
 
 def dummy_func():
