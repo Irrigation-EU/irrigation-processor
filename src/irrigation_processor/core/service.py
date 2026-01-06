@@ -17,10 +17,10 @@ class LocalService:
         self._state: dict[str, dict[str, dict[str, Any]]] = {}
 
     def run(
-            self,
-            pipeline_name: str,
-            order: list[str],
-            steps: dict[str, StepMeta],
+        self,
+        pipeline_name: str,
+        order: list[str],
+        steps: dict[str, StepMeta],
     ):
         """Execute steps in given order. Returns state with outputs."""
 
@@ -34,7 +34,7 @@ class LocalService:
             )
 
             sig = inspect.signature(step_meta.func)
-            client=None
+            client = None
             if "dask_client" in sig.parameters:
                 cluster = LocalCluster(
                     n_workers=4,

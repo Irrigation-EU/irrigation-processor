@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
-from pydantic import ConfigDict, create_model
 import xarray as xr
+from pydantic import ConfigDict, create_model
 
 from irrigation_processor.constants import LOG, OUTPUT_DIR
 from irrigation_processor.core import XcubeDataStoreStorage
@@ -74,6 +74,7 @@ def inject_dynamic_context_from_config(
 
         context_obj = config_model(**merged_cfg)
         step_meta.context_cls = lambda obj=context_obj: obj
+
 
 def get_existing_data(
     *,

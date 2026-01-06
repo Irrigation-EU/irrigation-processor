@@ -7,7 +7,6 @@ from irrigation_processor.constants import (
     IWU_ESTIMATES_SPATIAL_ID,
     IWU_ESTIMATES_TEMPORAL_ID,
     LOG,
-    OUTPUT_DIR,
 )
 from irrigation_processor.utils import get_existing_data
 
