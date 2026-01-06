@@ -39,7 +39,6 @@ class TestExecutePipeline(unittest.TestCase):
             pipeline = Mock()
             pipeline.run.return_value = {"status": "ok"}
             mock_pipeline_cls.return_value = pipeline
-
             execute_pipeline(config_file)
 
             mock_storage_cls.assert_called_once()

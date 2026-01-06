@@ -27,7 +27,7 @@ def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
 
     inject_dynamic_context_from_config(config, registry, storage)
 
-    service = LocalService(storage=storage, use_cache=True)
+    service = LocalService(storage=storage)
     p = Pipeline(service=service, pipeline_name="irrigation_estimates")
 
     p.add_steps_from_registry(registry)
@@ -38,7 +38,7 @@ def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
     # src.render("pipeline", format="png", view=True)
 
     state = p.run()
-    LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
+    # LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
 
 
 if __name__ == "__main__":

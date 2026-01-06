@@ -147,10 +147,10 @@ class DummyContext:
 
 
 class TestPreprocessor(unittest.TestCase):
-    def test_irrigation_preprocessor_cached(self):
+    @patch("irrigation_processor.ops.preprocessor.get_existing_data")
+    def test_irrigation_preprocessor_cached(self, mock_get_existing_data):
         store = Mock()
-        store.list_data_ids.return_value = [INPUT_FOR_CALIBRATION_ID]
-        store.open_data.return_value = "CACHED_DS"
+        mock_get_existing_data.return_value = "CACHED_DS"
 
         ctx = DummyContext(store)
 

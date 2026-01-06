@@ -15,7 +15,7 @@ from irrigation_processor.constants import (
     LOG,
     OUTPUT_DIR,
 )
-from irrigation_processor.utils import split_date_range
+from irrigation_processor.utils import split_date_range, get_existing_data
 
 
 # TODO: Maybe use protocol instead of BaseModel?
@@ -49,10 +49,13 @@ def load_data(context: BaseModel) -> dict:
 
 def _get_cds_data(context: BaseModel) -> str:
     store: DataStore = context.store
-    data_ids = store.list_data_ids()
-    if ERA5_DATA_ID in data_ids:
-        LOG.info(f"CDS data already exists at {OUTPUT_DIR}/{ERA5_DATA_ID}")
-        return ERA5_DATA_ID
+
+    result = get_existing_data(
+        store=store,
+        data_id=ERA5_DATA_ID,
+    )
+    if result is not None:
+        return result
 
     time_range = context.time_range
     bbox = context.bbox
@@ -66,6 +69,15 @@ def _get_cds_data(context: BaseModel) -> str:
     cds_store = new_data_store("cds", normalize_names=True)
 
     for _time_range in time_ranges:
+        filename = f"{CDS_SUBDIR}/era5-{_time_range[0].replace('-', '_')}-{_time_range[1].replace('-', '_')}.zarr"
+        if (
+            get_existing_data(
+                store=store,
+                data_id=filename,
+            )
+            is not None
+        ):
+            continue
         cds_cube = cds_store.open_data(
             data_id,
             cds_store.get_data_opener_ids()[0],
@@ -77,7 +89,7 @@ def _get_cds_data(context: BaseModel) -> str:
         LOG.info(f"Writing CDS data for time range: {_time_range}")
         store.write_data(
             cds_cube,
-            f"{CDS_SUBDIR}/era5-{_time_range[0].replace('-', '_')}-{_time_range[1].replace('-', '_')}.zarr",
+            filename,
             replace=True,
         )
 
@@ -165,10 +177,14 @@ def _get_cds_data(context: BaseModel) -> str:
 
 def _get_clms_data(context: BaseModel) -> str:
     store: DataStore = context.store
-    data_ids = store.list_data_ids()
-    if CLMS_DATA_ID in data_ids:
-        LOG.info(f"CLMS data already exists at {OUTPUT_DIR}/{CLMS_DATA_ID}")
-        return CLMS_DATA_ID
+
+    result = get_existing_data(
+        store=store,
+        data_id=CLMS_DATA_ID,
+    )
+    if result is not None:
+        return result
+
     LOG.info("Downloading CLMS Soil Moisture dataset...")
 
     time_range: list = context.time_range
@@ -183,17 +199,26 @@ def _get_clms_data(context: BaseModel) -> str:
     CLMS_SUBDIR = "clms"
 
     for i, _time_range in enumerate(time_ranges):
-        while True:
+        filename = (
+            f"{CLMS_SUBDIR}/clms_sm-{_time_range[0].replace('-', '_')}"
+            f"-{_time_range[1].replace('-', '_')}.zarr"
+        )
+
+        if (
+            get_existing_data(
+                store=store,
+                data_id=filename,
+            )
+            is not None
+        ):
+            continue
+        for attempt in range(1, 11):
             try:
                 LOG.info(f"Reading time_range: {_time_range}")
                 clms_data = clms_store.open_data(
                     "daily-surface-soil-moisture-v1.0", time_range=_time_range
                 )
 
-                filename = (
-                    f"{CLMS_SUBDIR}/clms_sm-{_time_range[0].replace('-', '_')}"
-                    f"-{_time_range[1].replace('-', '_')}.zarr"
-                )
                 clms_data = clms_data.rename({"x": "lon", "y": "lat"})
 
                 LOG.info("Writing data...")
@@ -208,6 +233,8 @@ def _get_clms_data(context: BaseModel) -> str:
                 break
             except Exception as e:
                 LOG.error(f"Exception for {_time_range}: {e}")
+                if attempt == 10:
+                    raise
                 LOG.info("Waiting 45 seconds before retrying...")
                 time.sleep(45)
 
@@ -266,10 +293,15 @@ def _get_clms_data(context: BaseModel) -> str:
 
 def _get_lc_data(context: BaseModel) -> xr.Dataset:
     store: DataStore = context.store
-    data_ids = store.list_data_ids()
-    if LC_DATA_ID in data_ids:
-        LOG.info(f"LandCover data already exists at {OUTPUT_DIR}/{LC_DATA_ID}")
-        return store.open_data(LC_DATA_ID)
+
+    result = get_existing_data(
+        store=store,
+        data_id=LC_DATA_ID,
+        load=True
+    )
+    if result is not None:
+        return result
+
     LOG.info("Downloading LandCover dataset from S3...")
     time = context.lc_time
 

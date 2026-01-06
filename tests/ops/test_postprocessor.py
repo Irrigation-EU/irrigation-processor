@@ -74,7 +74,7 @@ class TestPostprocessor(unittest.TestCase):
         temporal = make_iwu_ds()
 
         ctx = Mock()
-        ctx.temporal_mask_months = [1]  # January only
+        ctx.temporal_allowed_months = [1]  # January only
 
         spatial_out, temporal_out = _do_temporal_masking(ctx, spatial, temporal)
 
@@ -103,15 +103,18 @@ class TestPostprocessor(unittest.TestCase):
         self.assertTrue(np.isnan(out_spatial["iwu_est"].sel(lat=5, lon=6)).all())
         self.assertTrue((out_spatial["iwu_est"].sel(lat=4, lon=5).values > 0).any())
 
+    @patch("irrigation_processor.ops.postprocessor.get_existing_data")
     @patch("irrigation_processor.ops.postprocessor._do_spatial_masking")
     @patch("irrigation_processor.ops.postprocessor._do_temporal_masking")
     def test_postprocessor_flow(
         self,
         mock_temporal,
         mock_spatial,
+        mock_get_existing_data,
     ):
+
+        mock_get_existing_data.side_effect = [None, None]
         store = Mock()
-        store.list_data_ids.return_value = []
         store.open_data.side_effect = [
             make_iwu_ds(),  # spatial
             make_iwu_ds(),  # temporal

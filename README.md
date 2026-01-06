@@ -44,18 +44,18 @@ To get these creds, please follow the steps [here](https://documentation.dataspa
 Once you have your secrets, before running the pipeline, run the following commands
 
 ```bash
-export AWS_ACCESS_KEY_ID=<your key>
-export AWS_SECRET_ACCESS_KEY=<your secret>
-export AWS_ENDPOINT_URL=https://eodata.dataspace.copernicus.eu/
+export CDSE_AWS_ACCESS_KEY_ID=<your key>
+export CDSE_AWS_SECRET_ACCESS_KEY=<your secret>
+export CDSE_AWS_ENDPOINT_URL=https://eodata.dataspace.copernicus.eu/
 ```
 
 or add them to `.env` file as shown below:
 
 ```.dotenv
 # The following are for CDSE S3 access to CLMS data
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_ENDPOINT_URL=
+CDSE_AWS_ACCESS_KEY_ID=
+CDSE_AWS_SECRET_ACCESS_KEY=
+CDSE_AWS_ENDPOINT_URL=
 ```
 
 ## Configuration file (`config.yml`)
@@ -81,7 +81,7 @@ calibration:
   rainfall_threshold: 0.1
 
 postprocessing:
-  temporal_mask_months: [4, 5, 6, 7, 8, 9]
+  temporal_allowed_months: [4, 5, 6, 7, 8, 9]
   spatial_mask_threshold: 0.5
 ```
 
@@ -301,7 +301,7 @@ In summary:
 - Dependencies are declared via `FromStep`
 - Execution order is inferred **automatically**
 - Configuration is injected **dynamically**
-- Outputs are **cached** and reused
+- Outputs are stored and reused
 
 This allows the pipeline to be:
 
@@ -347,7 +347,7 @@ storage = XcubeDataStoreStorage("s3", store_kwargs= dict(
                 endpoint_url=os.getenv("XCUBE_AWS_ENDPOINT_URL"),
             )
         ),
-        root="<your-s3-bucket-name>",
+        root=os.getenv("XCUBE_BUCKET_NAME"),
         max_depth= 5
     ))
 ```
@@ -361,16 +361,16 @@ XCUBE_AWS_SECRET_ACCESS_KEY=
 XCUBE_AWS_ENDPOINT_URL=
 XCUBE_BUCKET_NAME=
 # The following are for CDSE S3 access to CLMS data as shown above
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_ENDPOINT_URL=
+CDSE_AWS_ACCESS_KEY_ID=
+CDSE_AWS_SECRET_ACCESS_KEY=
+CDSE_AWS_ENDPOINT_URL=
 ```
 
 The pipeline will:
 
 - build the dependency graph
 - execute required steps
-- reuse cached results where available
+- reuse stored results where available
 - write final outputs to the configured data store
 
 The pipeline produces:
@@ -381,7 +381,7 @@ The pipeline produces:
 
 All outputs are stored using a xcube data store.
 
-**NOTE: This would be soon available as a python package.**
+**NOTE: This would be soon released as a python package.**
 
 ## Irrigation Processor Pipeline steps
 
