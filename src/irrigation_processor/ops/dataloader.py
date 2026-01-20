@@ -106,9 +106,11 @@ def _get_cds_data(context: BaseModel) -> str:
     def get_dataset(data_id: str):
         ds = store.open_data(data_id)
         ds = ds.drop_vars(["expver", "number"])
-        pev_daily = ds["pev"].resample(time="1D").mean()
-        tp_daily = ds["tp"].resample(time="1D").mean()
-        ### Do we need to take mean() or last() instead, ask Jacopo???
+
+        # taking last() as the variables are accumulated over 24 hours
+        # https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation#heading-Accumulations
+        pev_daily = ds["pev"].resample(time="1D").last()
+        tp_daily = ds["tp"].resample(time="1D").last()
 
         merged_ds = xr.merge([pev_daily, tp_daily])
         return merged_ds
