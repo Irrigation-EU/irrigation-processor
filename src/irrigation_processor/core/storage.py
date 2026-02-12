@@ -54,7 +54,7 @@ class XcubeDataStoreStorage(Storage):
         if not store_kwargs:
             store_kwargs = {}
         if store_id == "file" and "root" not in store_kwargs:
-            store_kwargs.update({"root": "outputs", "max_depth": 5})
+            store_kwargs.update({"root": "output_irrigation", "max_depth": 5})
         self.store = new_data_store(store_id, **store_kwargs)
 
     def save(self, key: str, obj: Any) -> dict[str, Any]:
