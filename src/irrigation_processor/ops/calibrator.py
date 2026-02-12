@@ -4,14 +4,16 @@ from pydantic import BaseModel
 from scipy.optimize import minimize
 from xcube.core.chunk import chunk_dataset
 
-from irrigation_processor.constants import CALIBRATED_ID, LOG, OUTPUT_DIR
-from irrigation_processor.utils import get_existing_data
+from irrigation_processor.constants import CALIBRATED_ID, LOG
+from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def soil_moisture_inversion_calibration(
     context: BaseModel, preprocessed_data: xr.Dataset, dask_client
 ) -> dict:
     store = context.store
+
+    validate_dataset(context, preprocessed_data)
 
     result = get_existing_data(
         store=store,
@@ -34,8 +36,12 @@ def soil_moisture_inversion_calibration(
 
     LOG.info(f"calibrating... {context} {preprocessed_data}")
     tp = preprocessed_data["tp"]
-    mask_season = tp["time"].dt.month.isin(context.allowed_months)
-    masked_tp = tp.where(~(mask_season & (tp < context.rainfall_threshold)))
+
+    allowed_months: list[int] = context.allowed_months
+    rainfall_threshold: float = context.rainfall_threshold
+
+    mask_season = tp["time"].dt.month.isin(allowed_months)
+    masked_tp = tp.where(~(mask_season & (tp < rainfall_threshold)))
     LOG.info("data masked")
     result = xr.apply_ufunc(
         calib_wrapper,
@@ -72,17 +78,22 @@ def soil_moisture_inversion_calibration(
     datasets = []
     for data_id in sorted(data_ids_cal):
         datasets.append(store.open_data(data_id))
+
     ds = xr.concat(datasets, dim="lat", join="left")
     chunked_ds = chunk_dataset(
         ds,
         chunk_sizes={"params": 4, "lat": 50, "lon": 50},
         format_name="zarr",
     )
+
+    validate_dataset(context, chunked_ds)
+
     store.write_data(chunked_ds, CALIBRATED_ID, replace=True)
+
     for data_id in data_ids_cal:
         store.delete_data(data_id)
-    calibrated_path = f"{OUTPUT_DIR}/{CALIBRATED_ID}"
-    LOG.info(f"calibration complete...{calibrated_path}")
+    LOG.info(f"calibration complete...{CALIBRATED_ID}")
+
     if context.check_calibration:
         calibrated = store.open_data("calibrated.zarr")
         arr_reshaped = calibrated.calibration.values.reshape(-1, 4)

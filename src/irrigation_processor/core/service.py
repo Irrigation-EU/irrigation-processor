@@ -34,23 +34,24 @@ class LocalService:
             )
 
             sig = inspect.signature(step_meta.func)
+
+            ctx = step_meta.context_cls() if step_meta.context_cls else None
+
             client = None
             if "dask_client" in sig.parameters:
+                dask_kwargs = ctx.dask_kwargs
                 cluster = LocalCluster(
-                    n_workers=4,
-                    threads_per_worker=1,
-                    memory_limit="4GB",
+                    **dask_kwargs
                 )
                 client = Client(cluster)
                 resolved_kwargs["dask_client"] = client
-
-            ctx = step_meta.context_cls() if step_meta.context_cls else None
 
             result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
             out_map = self._normalize_outputs(step_name, step_meta, result)
             self._state[step_name] = out_map
             LOG.info(f"Step state: {step_name}: {out_map}")
             save_pipeline_step_state(pipeline_name, step_name, out_map)
+
             if "dask_client" in sig.parameters:
                 client.close()
 

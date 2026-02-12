@@ -11,7 +11,6 @@ from irrigation_processor.utils import inject_dynamic_context_from_config
 
 load_dotenv()
 
-
 def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
     if disable_steps:
         for s in disable_steps:
@@ -23,7 +22,8 @@ def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
-    storage = XcubeDataStoreStorage()
+    storage_config = config.get("storage", {})
+    storage = XcubeDataStoreStorage(**storage_config)
 
     inject_dynamic_context_from_config(config, registry, storage)
 

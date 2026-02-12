@@ -2,7 +2,10 @@ import unittest
 from datetime import datetime
 from unittest.mock import Mock
 
+import numpy as np
+import pandas as pd
 import xarray as xr
+from pydantic import BaseModel
 
 from irrigation_processor.core import XcubeDataStoreStorage
 from irrigation_processor.core.pipeline import StepRegistry
@@ -11,6 +14,7 @@ from irrigation_processor.utils import (
     get_existing_data,
     inject_dynamic_context_from_config,
     split_date_range,
+    validate_dataset,
 )
 
 
@@ -221,3 +225,75 @@ class TestGetExistingData(unittest.TestCase):
 
         self.assertIs(result, ds)
         self.store.open_data.assert_called_once_with(self.data_id)
+
+
+class TestValidateDataset(unittest.TestCase):
+
+    def setUp(self):
+        lat = np.arange(44, 39.9, -0.5)  # descending
+        lon = np.arange(-5, 3.1, 0.5)
+        time = pd.date_range("2024-01-01", "2024-01-10")
+
+        data = np.random.rand(len(time), len(lat), len(lon))
+
+        self.dataset = xr.Dataset(
+            {"var": (("time", "lat", "lon"), data)},
+            coords={
+                "time": time,
+                "lat": lat,
+                "lon": lon,
+            },
+        )
+
+        class Context(BaseModel):
+            bbox: list[float]=[-5, 40, 3, 44]  # [min_lon, min_lat, max_lon, max_lat]
+            time_range: list[str]=["2024-01-02", "2024-01-08"]
+
+        self.context = Context()
+
+    def test_valid_dataset_passes(self):
+        validate_dataset(self.context, self.dataset)
+
+    def test_missing_coordinates_raises(self):
+        ds = self.dataset.drop_dims("lat")
+
+        with self.assertRaises(ValueError):
+            validate_dataset(self.context, ds)
+
+    def test_latitude_not_descending_raises(self):
+        ds = self.dataset.sortby("lat")  # ascending
+
+        with self.assertRaises(ValueError):
+            validate_dataset(self.context, ds)
+
+    def test_latitude_coverage_failure(self):
+        ds = self.dataset.sel(lat=slice(43, 41))
+
+        with self.assertRaises(ValueError):
+            validate_dataset(self.context, ds)
+
+    def test_longitude_coverage_failure(self):
+        ds = self.dataset.sel(lon=slice(-4, 2))
+
+        with self.assertRaises(ValueError):
+            validate_dataset(self.context, ds)
+
+    def test_temporal_coverage_failure(self):
+        ds = self.dataset.sel(time=slice("2024-01-03", "2024-01-06"))
+
+        with self.assertRaises(ValueError):
+            validate_dataset(self.context, ds)
+
+    def test_spatial_subset_empty(self):
+        bad_context = self.context
+        bad_context.bbox = [100, 100, 110, 110]
+
+        with self.assertRaises(ValueError):
+            validate_dataset(bad_context, self.dataset)
+
+    def test_temporal_subset_empty(self):
+        bad_context = self.context
+        bad_context.time_range = ["2030-01-01", "2030-01-10"]
+
+        with self.assertRaises(ValueError):
+            validate_dataset(bad_context, self.dataset)

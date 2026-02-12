@@ -11,7 +11,7 @@ from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
     IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
 )
-from irrigation_processor.utils import get_existing_data
+from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_client):
@@ -34,6 +34,9 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
     iwu_spatial = store.open_data(iwu_spatial_path)
     iwu_temporal = store.open_data(iwu_temporal_path)
 
+    validate_dataset(context, iwu_spatial)
+    validate_dataset(context, iwu_temporal)
+
     iwu_spatial_masked, iwu_temporal_masked = _do_temporal_masking(
         context, iwu_spatial, iwu_temporal
     )
@@ -41,7 +44,10 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
         context, iwu_spatial_masked, iwu_temporal_masked
     )
 
+    validate_dataset(context, filtered_spatial)
     store.write_data(filtered_spatial, IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID)
+
+    validate_dataset(context, filtered_temporal)
     store.write_data(filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
 
     return {
@@ -51,8 +57,8 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
 
 
 def _get_spatial_mask(context) -> xr.Dataset:
-    url = context.spatial_mask_zip_url
-    spatial_mask_filename = context.spatial_mask_filename
+    url: str = context.spatial_mask_zip_url
+    spatial_mask_filename: str = context.spatial_mask_filename
     r = requests.get(url)
     z = zipfile.ZipFile(io.BytesIO(r.content))
 
@@ -67,7 +73,7 @@ def _do_temporal_masking(
     iwu_spatial: xr.Dataset,
     iwu_temporal: xr.Dataset,
 ):
-    temporal_allowed_months = context.temporal_allowed_months
+    temporal_allowed_months: list[int] = context.temporal_allowed_months
     iwu_spatial_masked = iwu_spatial.where(
         iwu_spatial.time.dt.month.isin(temporal_allowed_months), 0
     )
@@ -83,9 +89,9 @@ def _do_spatial_masking(
     iwu_spatial: xr.Dataset,
     iwu_temporal: xr.Dataset,
 ):
-    bbox = context.spatial_mask_bbox
+    bbox: list[float] = context.spatial_mask_bbox
     spatial_mask = _get_spatial_mask(context)
-    threshold = context.spatial_mask_threshold
+    threshold: int = context.spatial_mask_threshold
     spatial_mask_subset = spatial_mask.sel(
         y=slice(bbox[3], bbox[1]), x=slice(bbox[0], bbox[2])
     )

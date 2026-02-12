@@ -4,7 +4,7 @@ from typing import Any
 import xarray as xr
 from xcube.core.store import new_data_store
 
-from irrigation_processor.constants import LOG, OUTPUT_DIR
+from irrigation_processor.constants import LOG
 
 
 class Storage(abc.ABC):
@@ -54,7 +54,7 @@ class XcubeDataStoreStorage(Storage):
         if not store_kwargs:
             store_kwargs = {}
         if store_id == "file" and "root" not in store_kwargs:
-            store_kwargs.update({"root": OUTPUT_DIR, "max_depth": 5})
+            store_kwargs.update({"root": "outputs", "max_depth": 5})
         self.store = new_data_store(store_id, **store_kwargs)
 
     def save(self, key: str, obj: Any) -> dict[str, Any]:
