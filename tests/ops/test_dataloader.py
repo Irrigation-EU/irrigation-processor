@@ -25,15 +25,23 @@ class DummyContext(BaseModel):
     cds_variable_names: list = ["pev", "tp"]
     cds_optimize_writing: bool = False
     lc_time: str = "2020"
+    store_kwargs: dict = {}
+    use_gleam: bool = False
+    lc_data_id: str = "landcover.zarr"
+    lc_time_range: list[str] = ["2020-01-01", "2020-12-31"]
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def make_era5_ds():
-    time = pd.date_range("2020-01-01", periods=4, freq="6H")
+    time = pd.date_range("2020-01-01", periods=8, freq="6H")
 
     pev = np.array(
         [
+            [[1, 2], [3, 4]],
+            [[2, 3], [4, 5]],
+            [[3, 4], [5, 6]],
+            [[4, 5], [6, 7]],
             [[1, 2], [3, 4]],
             [[2, 3], [4, 5]],
             [[3, 4], [5, 6]],
@@ -47,6 +55,10 @@ def make_era5_ds():
             [[20, 30], [40, 50]],
             [[30, 40], [50, 60]],
             [[40, 50], [60, 70]],
+            [[10, 20], [30, 40]],
+            [[20, 30], [40, 50]],
+            [[30, 40], [50, 60]],
+            [[40, 50], [60, 70]],
         ]
     )
 
@@ -54,8 +66,8 @@ def make_era5_ds():
         {
             "pev": (("time", "lat", "lon"), pev),
             "tp": (("time", "lat", "lon"), tp),
-            "expver": ("time", [1, 1, 1, 1]),
-            "number": ("time", [0, 0, 0, 0]),
+            "expver": ("time", [1, 1, 1, 1, 1, 1, 1, 1]),
+            "number": ("time", [0, 0, 0, 0, 0, 0, 0, 0]),
         },
         coords={
             "time": time,
@@ -140,13 +152,13 @@ class TestDataLoader(unittest.TestCase):
     ):
         mock_cds.return_value = ERA5_DATA_ID
         mock_clms.return_value = CLMS_DATA_ID
-        mock_lc.return_value = xr.Dataset()
+        mock_lc.return_value = LC_DATA_ID
 
         result = load_data(self.context)
-
         self.assertEqual(result["sm_data_id"], CLMS_DATA_ID)
-        self.assertEqual(result["era5_data_id"], ERA5_DATA_ID)
-        self.assertIsInstance(result[LC_DATA_ID], xr.Dataset)
+        self.assertEqual(result["era5_vars_data_id"], ERA5_DATA_ID)
+        self.assertEqual(result["lc_data_id"], LC_DATA_ID)
+        self.assertEqual(result["gleam_data_id"], '')
 
     @patch("irrigation_processor.ops.dataloader.split_date_range")
     def test_get_cds_data_cached(self, mock_split):
@@ -197,7 +209,7 @@ class TestDataLoader(unittest.TestCase):
         slice_source = mock_zappend.call_args.kwargs["slice_source"]
         out_ds = slice_source("era5/part1")
 
-        self.assertEqual(out_ds.sizes["time"], 1)
+        self.assertEqual(out_ds.sizes["time"], 2)
         self.assertIn("pev", out_ds)
         self.assertIn("tp", out_ds)
         self.assertNotIn("expver", out_ds)
@@ -304,7 +316,7 @@ class TestDataLoader(unittest.TestCase):
         chunked_calls = [call for call in calls if call[0][1] == "era5_chunked.zarr"]
         self.assertEqual(len(chunked_calls), 1)
         chunked_ds = chunked_calls[0][0][0]
-        self.assertEqual(chunked_ds.sizes["time"], 1)
+        self.assertEqual(chunked_ds.sizes["time"], 2)
         self.assertIn("pev", chunked_ds)
         self.assertIn("tp", chunked_ds)
         self.assertNotIn("expver", chunked_ds)
@@ -439,10 +451,9 @@ class TestDataLoader(unittest.TestCase):
         )
 
         lc_store = Mock()
-        lc_store.open_data.return_value.base_dataset = base_ds
+        lc_store.open_data.return_value = base_ds
         mock_new_store.return_value = lc_store
 
         result = _get_lc_data(self.context)
 
-        self.assertIsInstance(result, xr.Dataset)
-        self.assertIn("lccs_class", result)
+        self.assertIsInstance(result, str)

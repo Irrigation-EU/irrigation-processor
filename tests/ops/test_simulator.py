@@ -14,17 +14,17 @@ from irrigation_processor.ops.simulator import _resample_sum, _ts_smet4irr
 
 
 def make_preprocessed_ds():
-    time = pd.date_range("2020-01-01", periods=8, freq="D")  # enough for weekly
+    time = pd.date_range("2020-01-31", periods=61, freq="D")
     return xr.Dataset(
         {
-            "SWI": (("time", "lat", "lon"), np.ones((8, 2, 2)) * 0.3),
-            "pev": (("time", "lat", "lon"), np.ones((8, 2, 2)) * 2.0),
-            "tp": (("time", "lat", "lon"), np.ones((8, 2, 2)) * 1.0),
+            "SWI": (("time", "lat", "lon"), np.ones((61, 2, 2)) * 0.3),
+            "pev": (("time", "lat", "lon"), np.ones((61, 2, 2)) * 2.0),
+            "tp": (("time", "lat", "lon"), np.ones((61, 2, 2)) * 1.0),
         },
         coords={
             "time": time,
-            "lat": [4, 5],
-            "lon": [5, 6],
+            "lat": [6, 5],
+            "lon": [4, 5],
             "spatial_ref": 0,
         },
     )
@@ -39,8 +39,8 @@ def make_calibration_ds():
             )
         },
         coords={
-            "lat": [4, 5],
-            "lon": [5, 6],
+            "lat": [6, 5],
+            "lon": [4, 5],
             "params": ["a", "b", "z", "RF"],
         },
     )
@@ -124,7 +124,7 @@ class TestSimulator(unittest.TestCase):
             dims=("time", "lat", "lon"),
             coords={
                 "time": time,
-                "lat": [4, 5],
+                "lat": [6, 5],
                 "lon": [5, 6],
                 "spatial_ref": 0,
             },
@@ -148,12 +148,19 @@ class TestSimulator(unittest.TestCase):
         store.open_data.side_effect = [
             make_calibration_ds(),  # open calibrated_path
             xr.Dataset(
-                {"iwu_est": (("time", "lat", "lon"), np.ones((2, 2, 2)))}
+                {"iwu_est": (("time", "lat", "lon"), np.ones((10, 2, 2)))},
+                coords={
+                    "time": pd.date_range("2020-01-31", periods=10, freq="2W"),
+                    "lat": [6, 5],
+                    "lon": [4, 5],
+                },
             ),  # open temporal result
         ]
 
         ctx = Mock()
         ctx.store = store
+        ctx.bbox = [4, 5, 5, 6]
+        ctx.time_range = ["2020-01-31", "2020-03-31"]
 
         pre = make_preprocessed_ds()
 

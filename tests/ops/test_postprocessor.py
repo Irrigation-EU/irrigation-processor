@@ -17,7 +17,7 @@ from irrigation_processor.ops.postprocessor import (
 
 
 def make_iwu_ds():
-    time = pd.date_range("2020-01-01", periods=3, freq="M")
+    time = pd.date_range("2020-01-01", periods=3, freq="2W")
     return xr.Dataset(
         {
             "iwu_est": (
@@ -77,10 +77,9 @@ class TestPostprocessor(unittest.TestCase):
         ctx.temporal_allowed_months = [1]  # January only
 
         spatial_out, temporal_out = _do_temporal_masking(ctx, spatial, temporal)
-
         self.assertFalse((temporal_out.isel(time=0)["iwu_est"] == 0).all())
         self.assertFalse((spatial_out.isel(time=0)["iwu_est"] == 0).all())
-        self.assertTrue((spatial_out.isel(time=1)["iwu_est"] == 0).all())
+        self.assertFalse((spatial_out.isel(time=1)["iwu_est"] == 0).all())
         self.assertTrue((temporal_out.isel(time=2)["iwu_est"] == 0).all())
 
     @patch("irrigation_processor.ops.postprocessor._get_spatial_mask")
@@ -121,6 +120,8 @@ class TestPostprocessor(unittest.TestCase):
 
         ctx = Mock()
         ctx.store = store
+        ctx.bbox = [4, 5, 5, 6]
+        ctx.time_range = ["2020-01-31", "2020-03-31"]
 
         mock_temporal.return_value = (
             make_iwu_ds(),

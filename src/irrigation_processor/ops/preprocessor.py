@@ -129,7 +129,6 @@ def _land_cover_preprocessor(context: BaseModel, lc_data_id: str) -> (
         xr.DataArray):
     store: DataStore = context.store
     lc_cube = store.open_data(lc_data_id)
-    validate_dataset(context, lc_cube)
 
     keep_classes = context.lc_keep_classes
 

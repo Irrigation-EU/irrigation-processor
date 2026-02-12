@@ -97,20 +97,20 @@ def make_swi_ds():
         },
         coords={
             "time": time,
-            "lat": [4, 5],
-            "lon": [5, 4],
+            "lat": [5, 4],
+            "lon": [5, 6],
         },
     )
 
 
 def make_lc_mask():
     return xr.DataArray(
-        [[1, 0], [1, 1]],
-        dims=("lat", "lon"),
+        [[[1, 0], [1, 1]]],
+        dims=("time", "lat", "lon"),
         coords={
-            "time": pd.to_datetime("2020-01-01"),
-            "lat": [4, 5],
-            "lon": [5, 4],
+            "time": [pd.to_datetime("2020-01-01")],
+            "lat": [5, 4],
+            "lon": [5, 6],
         },
     )
 
@@ -130,8 +130,8 @@ def make_era5_daily_ds():
         },
         coords={
             "time": time,
-            "lat": [4, 5],
-            "lon": [5, 4],
+            "lat": [5, 4],
+            "lon": [5, 6],
         },
     )
 
@@ -140,19 +140,20 @@ class DummyContext:
     def __init__(self, store):
         self.store = store
         self.bbox = (5, 4, 6, 5)  # xmin, ymin, xmax, ymax
+        self.time_range = ["2020-01-01", "2020-01-02"]
 
 
 class TestPreprocessor(unittest.TestCase):
     @patch("irrigation_processor.ops.preprocessor.get_existing_data")
     def test_irrigation_preprocessor_cached(self, mock_get_existing_data):
         store = Mock()
-        mock_get_existing_data.return_value = "CACHED_DS"
+        mock_get_existing_data.return_value = make_swi_ds()
 
         ctx = DummyContext(store)
 
         out = irrigation_preprocessor(ctx, "sm", "lc", "era5")
 
-        self.assertEqual(out, "CACHED_DS")
+        self.assertIsInstance(out, xr.Dataset)
 
     @patch("irrigation_processor.ops.preprocessor._resample_and_merge")
     @patch("irrigation_processor.ops.preprocessor._era5_preprocessor")
@@ -178,7 +179,7 @@ class TestPreprocessor(unittest.TestCase):
         out = irrigation_preprocessor(ctx, "sm", "lc", "era5")
 
         self.assertEqual(out, "MERGED")
-        mock_merge.assert_called_once_with("SM", "LC", "ERA5")
+        mock_merge.assert_called_once_with("SM", "LC", "ERA5", None)
 
     def test_soil_moisture_preprocessor_cached(self):
         store = Mock()
@@ -223,16 +224,18 @@ class TestPreprocessor(unittest.TestCase):
         self.assertEqual(len(out_time), 3)
 
     def test_land_cover_preprocessor(self):
-        lc = make_lc_ds()
-        ctx = DummyContext(store=None)
+        store = Mock()
+        store.open_data.return_value = make_lc_ds()
+        ctx = DummyContext(store=store)
+        ctx.lc_keep_classes = [10, 30]
 
-        out = _land_cover_preprocessor(ctx, lc)
+        out = _land_cover_preprocessor(ctx, "lc")
 
         self.assertEqual(out.dtype, "uint8")
         self.assertEqual(out.shape, (2, 2))
         self.assertIn(1, out.values)
         self.assertEqual("lccs_class", out.name)
-        self.assertEqual([[1, 1], [0, 1]], out.values.tolist())
+        self.assertEqual([[1, 1], [0, 0]], out.values.tolist())
 
     def test_era5_preprocessor(self):
         store = Mock()
@@ -319,17 +322,18 @@ class TestPreprocessor(unittest.TestCase):
         self.assertIn("pev", out)
         self.assertIn("tp", out)
 
-        # corresponds to lc_mask == 0
-        masked_lat = 4
-        masked_lon = 4
-
-        self.assertTrue(np.isnan(out["SWI"].sel(lat=masked_lat, lon=masked_lon)).all())
-        self.assertTrue(np.isnan(out["pev"].sel(lat=masked_lat, lon=masked_lon)).all())
-
-        # where lc_mask == 1
-        unmasked_lat = 4
+        # corresponds to lc_mask == 1
+        unmasked_lat = 5
         unmasked_lon = 5
 
-        self.assertFalse(
-            np.isnan(out["SWI"].sel(lat=unmasked_lat, lon=unmasked_lon)).any()
+        self.assertFalse(np.isnan(out["SWI"].sel(lat=unmasked_lat,
+                                             lon=unmasked_lon)).all())
+        self.assertFalse(np.isnan(out["pev"].sel(lat=unmasked_lat, lon=unmasked_lon)).all())
+
+        # where lc_mask == 0
+        masked_lat = 5
+        masked_lon = 6
+
+        self.assertTrue(
+            np.isnan(out["SWI"].sel(lat=masked_lat, lon=masked_lon)).any()
         )

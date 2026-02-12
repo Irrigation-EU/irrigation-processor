@@ -69,7 +69,7 @@ def _get_cds_data(context: BaseModel) -> str:
             if v != "potential_evaporation"
         ]
 
-    log.info(f"Variables required from ERA5-Land, {variables_name}")
+    LOG.info(f"Variables required from ERA5-Land, {variables_name}")
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
 

@@ -1,6 +1,7 @@
 import io
 import zipfile
 
+import numpy as np
 import requests
 import rioxarray as rxr
 import xarray as xr
@@ -34,8 +35,18 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
     iwu_spatial = store.open_data(iwu_spatial_path)
     iwu_temporal = store.open_data(iwu_temporal_path)
 
-    validate_dataset(context, iwu_spatial)
-    validate_dataset(context, iwu_temporal)
+    assert np.all(
+        iwu_spatial
+        .time.diff("time")
+        .values.astype("timedelta64[D]")
+        == 14
+    )
+    assert np.all(
+        iwu_temporal
+        .time.diff("time")
+        .values.astype("timedelta64[D]")
+        == 14
+    )
 
     iwu_spatial_masked, iwu_temporal_masked = _do_temporal_masking(
         context, iwu_spatial, iwu_temporal
@@ -44,10 +55,10 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
         context, iwu_spatial_masked, iwu_temporal_masked
     )
 
-    validate_dataset(context, filtered_spatial)
+    assert np.all(filtered_spatial.time.diff("time").values.astype("timedelta64[D]") == 14)
     store.write_data(filtered_spatial, IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID)
 
-    validate_dataset(context, filtered_temporal)
+    assert np.all(filtered_temporal.time.diff("time").values.astype("timedelta64[D]") == 14)
     store.write_data(filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
 
     return {

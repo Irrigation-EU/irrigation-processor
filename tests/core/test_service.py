@@ -1,7 +1,10 @@
 import os
 import tempfile
 import unittest
+from typing import Any
 from unittest.mock import Mock, patch
+
+from pydantic import BaseModel, Field
 
 from irrigation_processor.core.service import LocalService, save_pipeline_step_state
 from irrigation_processor.core.step import FromStep
@@ -149,7 +152,7 @@ class TestService(unittest.TestCase):
 
         step1 = DummyStepMeta(
             "step1",
-            lambda ctx: 1,
+            lambda x: 1,
             outputs=["out"],
         )
         step2 = DummyStepMeta(
@@ -180,10 +183,14 @@ class TestService(unittest.TestCase):
 
         svc = LocalService(self.storage)
 
+        class DummyDaskContext(BaseModel):
+            dask_kwargs: dict[str, Any] = Field(default_factory=dict)
+
         step = DummyStepMeta(
             "step1",
             step_fn,
             outputs=["out"],
+            context_cls=DummyDaskContext
         )
 
         result = svc.run(
