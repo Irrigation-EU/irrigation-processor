@@ -7,13 +7,10 @@ import pandas as pd
 import xarray as xr
 from pydantic import BaseModel, ConfigDict
 
-from irrigation_processor.constants import CLMS_DATA_ID, ERA5_DATA_ID, LC_DATA_ID
-from irrigation_processor.ops.dataloader import (
-    _get_cds_data,
-    _get_clms_data,
-    _get_lc_data,
-    load_data,
-)
+from irrigation_processor.constants import (CLMS_DATA_ID, ERA5_DATA_ID,
+                                            LC_DATA_ID)
+from irrigation_processor.ops.dataloader import (_get_cds_data, _get_clms_data,
+                                                 _get_lc_data, load_data)
 
 
 class DummyContext(BaseModel):
@@ -158,7 +155,7 @@ class TestDataLoader(unittest.TestCase):
         self.assertEqual(result["sm_data_id"], CLMS_DATA_ID)
         self.assertEqual(result["era5_vars_data_id"], ERA5_DATA_ID)
         self.assertEqual(result["lc_data_id"], LC_DATA_ID)
-        self.assertEqual(result["gleam_data_id"], '')
+        self.assertEqual(result["gleam_data_id"], "")
 
     @patch("irrigation_processor.ops.dataloader.split_date_range")
     def test_get_cds_data_cached(self, mock_split):

@@ -9,13 +9,9 @@ from pydantic import BaseModel
 
 from irrigation_processor.core import XcubeDataStoreStorage
 from irrigation_processor.core.pipeline import StepRegistry
-from irrigation_processor.utils import (
-    convert_m_to_mm,
-    get_existing_data,
-    inject_dynamic_context_from_config,
-    split_date_range,
-    validate_dataset,
-)
+from irrigation_processor.utils import (convert_m_to_mm, get_existing_data,
+                                        inject_dynamic_context_from_config,
+                                        split_date_range, validate_dataset)
 
 
 class TestSplitDateRange(unittest.TestCase):
@@ -228,7 +224,6 @@ class TestGetExistingData(unittest.TestCase):
 
 
 class TestValidateDataset(unittest.TestCase):
-
     def setUp(self):
         lat = np.arange(44, 39.9, -0.5)  # descending
         lon = np.arange(-5, 3.1, 0.5)
@@ -246,8 +241,8 @@ class TestValidateDataset(unittest.TestCase):
         )
 
         class Context(BaseModel):
-            bbox: list[float]=[-5, 40, 3, 44]  # [min_lon, min_lat, max_lon, max_lat]
-            time_range: list[str]=["2024-01-02", "2024-01-08"]
+            bbox: list[float] = [-5, 40, 3, 44]  # [min_lon, min_lat, max_lon, max_lat]
+            time_range: list[str] = ["2024-01-02", "2024-01-08"]
 
         self.context = Context()
 

@@ -40,9 +40,7 @@ class LocalService:
             client = None
             if "dask_client" in sig.parameters:
                 dask_kwargs = ctx.dask_kwargs
-                cluster = LocalCluster(
-                    **dask_kwargs
-                )
+                cluster = LocalCluster(**dask_kwargs)
                 client = Client(cluster)
                 resolved_kwargs["dask_client"] = client
 

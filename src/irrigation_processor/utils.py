@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-import xarray as xr
 import pandas as pd
-from pydantic import ConfigDict, create_model, BaseModel
+import xarray as xr
+from pydantic import BaseModel, ConfigDict, create_model
 from xcube.core.store import DataStore
 
 from irrigation_processor.constants import LOG

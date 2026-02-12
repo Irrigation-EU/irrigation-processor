@@ -5,10 +5,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from irrigation_processor.constants import (
-    IWU_ESTIMATES_SPATIAL_ID,
-    IWU_ESTIMATES_TEMPORAL_ID,
-)
+from irrigation_processor.constants import (IWU_ESTIMATES_SPATIAL_ID,
+                                            IWU_ESTIMATES_TEMPORAL_ID)
 from irrigation_processor.ops import irrigation_simulator
 from irrigation_processor.ops.simulator import _resample_sum, _ts_smet4irr
 

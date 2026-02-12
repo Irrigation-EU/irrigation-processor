@@ -10,9 +10,8 @@ from xcube_resampling.gridmapping import GridMapping
 
 from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
-)
-from irrigation_processor.utils import get_existing_data, validate_dataset
+    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
+from irrigation_processor.utils import get_existing_data
 
 
 def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_client):
@@ -35,18 +34,8 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
     iwu_spatial = store.open_data(iwu_spatial_path)
     iwu_temporal = store.open_data(iwu_temporal_path)
 
-    assert np.all(
-        iwu_spatial
-        .time.diff("time")
-        .values.astype("timedelta64[D]")
-        == 14
-    )
-    assert np.all(
-        iwu_temporal
-        .time.diff("time")
-        .values.astype("timedelta64[D]")
-        == 14
-    )
+    assert np.all(iwu_spatial.time.diff("time").values.astype("timedelta64[D]") == 14)
+    assert np.all(iwu_temporal.time.diff("time").values.astype("timedelta64[D]") == 14)
 
     iwu_spatial_masked, iwu_temporal_masked = _do_temporal_masking(
         context, iwu_spatial, iwu_temporal
@@ -55,10 +44,14 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
         context, iwu_spatial_masked, iwu_temporal_masked
     )
 
-    assert np.all(filtered_spatial.time.diff("time").values.astype("timedelta64[D]") == 14)
+    assert np.all(
+        filtered_spatial.time.diff("time").values.astype("timedelta64[D]") == 14
+    )
     store.write_data(filtered_spatial, IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID)
 
-    assert np.all(filtered_temporal.time.diff("time").values.astype("timedelta64[D]") == 14)
+    assert np.all(
+        filtered_temporal.time.diff("time").values.astype("timedelta64[D]") == 14
+    )
     store.write_data(filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
 
     return {

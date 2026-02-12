@@ -6,14 +6,12 @@ import pandas as pd
 import xarray as xr
 
 from irrigation_processor.constants import PROCESSED_CLMS_DATA_ID
-from irrigation_processor.ops.preprocessor import (
-    _era5_preprocessor,
-    _land_cover_preprocessor,
-    _resample_and_merge,
-    _soil_moisture_preprocessor,
-    _swicomp_nan,
-    irrigation_preprocessor,
-)
+from irrigation_processor.ops.preprocessor import (_era5_preprocessor,
+                                                   _land_cover_preprocessor,
+                                                   _resample_and_merge,
+                                                   _soil_moisture_preprocessor,
+                                                   _swicomp_nan,
+                                                   irrigation_preprocessor)
 
 
 def make_clms_ds():
@@ -326,14 +324,15 @@ class TestPreprocessor(unittest.TestCase):
         unmasked_lat = 5
         unmasked_lon = 5
 
-        self.assertFalse(np.isnan(out["SWI"].sel(lat=unmasked_lat,
-                                             lon=unmasked_lon)).all())
-        self.assertFalse(np.isnan(out["pev"].sel(lat=unmasked_lat, lon=unmasked_lon)).all())
+        self.assertFalse(
+            np.isnan(out["SWI"].sel(lat=unmasked_lat, lon=unmasked_lon)).all()
+        )
+        self.assertFalse(
+            np.isnan(out["pev"].sel(lat=unmasked_lat, lon=unmasked_lon)).all()
+        )
 
         # where lc_mask == 0
         masked_lat = 5
         masked_lon = 6
 
-        self.assertTrue(
-            np.isnan(out["SWI"].sel(lat=masked_lat, lon=masked_lon)).any()
-        )
+        self.assertTrue(np.isnan(out["SWI"].sel(lat=masked_lat, lon=masked_lon)).any())

@@ -7,20 +7,18 @@ from xcube.core.store import DataStore
 from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
-from irrigation_processor.constants import (
-    INPUT_FOR_CALIBRATION_ID,
-    LOG,
-    PROCESSED_CLMS_DATA_ID,
-)
-from irrigation_processor.utils import convert_m_to_mm, get_existing_data, validate_dataset
+from irrigation_processor.constants import (INPUT_FOR_CALIBRATION_ID, LOG,
+                                            PROCESSED_CLMS_DATA_ID)
+from irrigation_processor.utils import (convert_m_to_mm, get_existing_data,
+                                        validate_dataset)
 
 
 def irrigation_preprocessor(
     context: BaseModel,
-        sm_data_id: str,
-        lc_data_id: str,
-        era5_vars_data_id: str,
-        gleam_data_id: str | None = None
+    sm_data_id: str,
+    lc_data_id: str,
+    era5_vars_data_id: str,
+    gleam_data_id: str | None = None,
 ) -> xr.Dataset:
     store: DataStore = context.store
 
@@ -38,8 +36,9 @@ def irrigation_preprocessor(
     preprocessed_era5 = _era5_preprocessor(context, era5_vars_data_id)
     preprocessed_gleam = _gleam_preprocessor(context, gleam_data_id)
 
-    merged_ds = _resample_and_merge(preprocessed_sm, preprocessed_lc,
-                                    preprocessed_era5, preprocessed_gleam)
+    merged_ds = _resample_and_merge(
+        preprocessed_sm, preprocessed_lc, preprocessed_era5, preprocessed_gleam
+    )
 
     LOG.info("preprocessing complete...")
     return merged_ds
@@ -125,8 +124,7 @@ def _swicomp_nan(in_data, in_jd, ctime=2):
     return filtered
 
 
-def _land_cover_preprocessor(context: BaseModel, lc_data_id: str) -> (
-        xr.DataArray):
+def _land_cover_preprocessor(context: BaseModel, lc_data_id: str) -> xr.DataArray:
     store: DataStore = context.store
     lc_cube = store.open_data(lc_data_id)
 
@@ -150,8 +148,8 @@ def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> xr.Dataset:
     LOG.info("preprocessed era5...")
     return cds_cube
 
-def _gleam_preprocessor(context: BaseModel, gleam_data_id: str) -> (xr.Dataset |
-                                                                  None):
+
+def _gleam_preprocessor(context: BaseModel, gleam_data_id: str) -> xr.Dataset | None:
     if gleam_data_id is None:
         return None
 
@@ -163,8 +161,10 @@ def _gleam_preprocessor(context: BaseModel, gleam_data_id: str) -> (xr.Dataset |
 
 
 def _resample_and_merge(
-    soil_moisture: xr.Dataset, lc: xr.DataArray, era5: xr.Dataset,
-        preprocessed_gleam: xr.Dataset | None = None
+    soil_moisture: xr.Dataset,
+    lc: xr.DataArray,
+    era5: xr.Dataset,
+    preprocessed_gleam: xr.Dataset | None = None,
 ) -> xr.Dataset:
     LOG.info("resampling...")
     gm_sm = GridMapping.from_dataset(soil_moisture)

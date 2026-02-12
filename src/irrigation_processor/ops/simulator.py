@@ -3,11 +3,8 @@ import xarray as xr
 from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
 
-from irrigation_processor.constants import (
-    IWU_ESTIMATES_SPATIAL_ID,
-    IWU_ESTIMATES_TEMPORAL_ID,
-    LOG,
-)
+from irrigation_processor.constants import (IWU_ESTIMATES_SPATIAL_ID,
+                                            IWU_ESTIMATES_TEMPORAL_ID, LOG)
 from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
@@ -78,8 +75,8 @@ def irrigation_simulator(
     assert np.all(
         IRR_biweekly.to_dataset(name="iwu_est")
         .time.diff("time")
-        .values
-        .astype("timedelta64[D]") == 14
+        .values.astype("timedelta64[D]")
+        == 14
     )
 
     store.write_data(
@@ -94,10 +91,7 @@ def irrigation_simulator(
     )
 
     assert np.all(
-        IRR_biweekly_temporal
-        .time.diff("time")
-        .values.astype("timedelta64[D]")
-        == 14
+        IRR_biweekly_temporal.time.diff("time").values.astype("timedelta64[D]") == 14
     )
 
     store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=True)
