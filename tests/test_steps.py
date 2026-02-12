@@ -1,10 +1,9 @@
 import inspect
 import unittest
 
-import xarray as xr
 from pydantic import BaseModel
 
-from irrigation_processor.constants import INPUT_FOR_CALIBRATION_ID, LC_DATA_ID
+from irrigation_processor.constants import INPUT_FOR_CALIBRATION_ID
 from irrigation_processor.core.pipeline import FromStep
 from irrigation_processor.steps import registry
 
@@ -36,7 +35,7 @@ class TestPipelineDefinition(unittest.TestCase):
         self.assertEqual(meta.name, "dataloader")
         self.assertEqual(
             meta.outputs,
-            ('sm_data_id', 'lc_data_id', 'era5_vars_data_id', 'gleam_data_id'),
+            ("sm_data_id", "lc_data_id", "era5_vars_data_id", "gleam_data_id"),
         )
         self.assertEqual(meta.inputs, ())
         self.assertIsNone(meta.context_cls)

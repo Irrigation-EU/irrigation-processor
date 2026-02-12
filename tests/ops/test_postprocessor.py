@@ -7,13 +7,10 @@ import xarray as xr
 
 from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
-)
+    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
 from irrigation_processor.ops import postprocessor
-from irrigation_processor.ops.postprocessor import (
-    _do_spatial_masking,
-    _do_temporal_masking,
-)
+from irrigation_processor.ops.postprocessor import (_do_spatial_masking,
+                                                    _do_temporal_masking)
 
 
 def make_iwu_ds():

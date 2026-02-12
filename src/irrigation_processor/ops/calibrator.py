@@ -86,8 +86,9 @@ def soil_moisture_inversion_calibration(
         format_name="zarr",
     )
 
-    assert chunked_ds.dims["params"] == 4, ("4 params expected, "
-                                            "got {chunked_ds.dims['params')]}")
+    assert chunked_ds.dims["params"] == 4, (
+        "4 params expected, got {chunked_ds.dims['params')]}"
+    )
 
     store.write_data(chunked_ds, CALIBRATED_ID, replace=True)
 

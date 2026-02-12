@@ -7,12 +7,8 @@ import xarray as xr
 
 from irrigation_processor.constants import CALIBRATED_ID
 from irrigation_processor.ops.calibrator import (
-    calib_sm_inversion,
-    calib_wrapper,
-    cost_fun,
-    sm_inversion,
-    soil_moisture_inversion_calibration,
-)
+    calib_sm_inversion, calib_wrapper, cost_fun, sm_inversion,
+    soil_moisture_inversion_calibration)
 
 
 class DummyContext:
@@ -42,6 +38,7 @@ def make_calibrated_ds():
         },
     )
 
+
 def make_preprocessed_ds() -> xr.Dataset:
     lat = np.arange(44, 39.9, -1.0)
     lon = np.arange(-5, 3.1, 1.0)
@@ -64,6 +61,7 @@ def make_preprocessed_ds() -> xr.Dataset:
     )
 
     return ds
+
 
 class TestCalibrator(unittest.TestCase):
     def test_sm_inversion_basic_behavior(self):
@@ -214,8 +212,9 @@ class TestCalibrator(unittest.TestCase):
         ctx.rainfall_threshold = 0.1
         ctx.check_calibration = False
 
-        result = soil_moisture_inversion_calibration(ctx, make_preprocessed_ds(),
-                                                     dask_client=None)
+        result = soil_moisture_inversion_calibration(
+            ctx, make_preprocessed_ds(), dask_client=None
+        )
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
 

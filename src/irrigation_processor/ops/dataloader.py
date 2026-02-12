@@ -8,13 +8,8 @@ from xcube.core.chunk import chunk_dataset
 from xcube.core.store import DataStore, new_data_store
 from zappend.api import zappend
 
-from irrigation_processor.constants import (
-    CLMS_DATA_ID,
-    ERA5_DATA_ID,
-    LC_DATA_ID,
-    GLEAM_DATA_ID,
-    LOG,
-)
+from irrigation_processor.constants import (CLMS_DATA_ID, ERA5_DATA_ID,
+                                            GLEAM_DATA_ID, LC_DATA_ID, LOG)
 from irrigation_processor.utils import get_existing_data, split_date_range
 
 
@@ -32,7 +27,7 @@ def load_data(context: BaseModel) -> dict:
         "era5_vars_data_id": era5_data_id,
     }
 
-    if context.use_gleam == True:
+    if context.use_gleam:
         gleam_data_id = _get_gleam_data(context)
         results["gleam_data_id"] = gleam_data_id
     else:
@@ -44,7 +39,7 @@ def load_data(context: BaseModel) -> dict:
 
 def _get_cds_data(context: BaseModel) -> str:
     store: DataStore = context.store
-    output_dir: str = context.store_kwargs.get('root')
+    output_dir: str = context.store_kwargs.get("root")
 
     result = get_existing_data(
         store=store,
@@ -63,11 +58,8 @@ def _get_cds_data(context: BaseModel) -> str:
 
     data_id: str = context.cds_data_id
     variables_name: list[str] = context.cds_variable_names
-    if context.use_gleam == True:
-        variables_name = [
-            v for v in variables_name
-            if v != "potential_evaporation"
-        ]
+    if context.use_gleam:
+        variables_name = [v for v in variables_name if v != "potential_evaporation"]
 
     LOG.info(f"Variables required from ERA5-Land, {variables_name}")
 
@@ -336,7 +328,5 @@ def _get_gleam_data(context: BaseModel) -> str:
 
     LOG.info("Loading Gleam dataset from xcube storage...")
     result = get_existing_data(store=store, data_id=GLEAM_DATA_ID)
-    assert result is not None, ("Gleam dataset must be provided locally in "
-                                "zarr format.")
+    assert result is not None, "Gleam dataset must be provided locally in zarr format."
     return result
-
