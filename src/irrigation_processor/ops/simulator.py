@@ -8,7 +8,7 @@ from irrigation_processor.constants import (
     IWU_ESTIMATES_TEMPORAL_ID,
     LOG,
 )
-from irrigation_processor.utils import get_existing_data
+from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def irrigation_simulator(
@@ -33,6 +33,9 @@ def irrigation_simulator(
         }
 
     calibration = store.open_data(calibrated_path)
+
+    validate_dataset(context, preprocessed_ds)
+    validate_dataset(context, calibration)
 
     psim = xr.apply_ufunc(
         _ts_smet4irr,
@@ -69,6 +72,8 @@ def irrigation_simulator(
 
     IRR_biweekly = _resample_sum(IRR_weekly, step=2)  # 14 days
 
+    validate_dataset(context, IRR_biweekly.to_dataset(name="iwu_est"))
+
     store.write_data(
         IRR_biweekly.to_dataset(name="iwu_est"),
         IWU_ESTIMATES_TEMPORAL_ID,
@@ -79,6 +84,8 @@ def irrigation_simulator(
     IRR_biweekly_spatial = chunk_dataset(
         IRR_biweekly_temporal, {"time": 1, "lat": 2072, "lon": 1708}, format_name="zarr"
     )
+
+    validate_dataset(context, IRR_biweekly_spatial)
     store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=True)
 
     LOG.info("simulation complete...")

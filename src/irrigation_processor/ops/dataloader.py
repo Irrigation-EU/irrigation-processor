@@ -12,8 +12,8 @@ from irrigation_processor.constants import (
     CLMS_DATA_ID,
     ERA5_DATA_ID,
     LC_DATA_ID,
+    GLEAM_DATA_ID,
     LOG,
-    OUTPUT_DIR,
 )
 from irrigation_processor.utils import get_existing_data, split_date_range
 
@@ -24,31 +24,27 @@ def load_data(context: BaseModel) -> dict:
 
     era5_data_id = _get_cds_data(context)
     sm_data_id = _get_clms_data(context)
-    lc_cube = _get_lc_data(context)
+    lc_data_id = _get_lc_data(context)
+
+    results = {
+        "sm_data_id": sm_data_id,
+        "lc_data_id": lc_data_id,
+        "era5_vars_data_id": era5_data_id,
+    }
+
+    if context.use_gleam == True:
+        gleam_data_id = _get_gleam_data(context)
+        results["gleam_data_id"] = gleam_data_id
+    else:
+        results["gleam_data_id"] = ""
 
     LOG.info("data loaded...")
-    return {
-        "sm_data_id": sm_data_id,
-        # the below item that is returned is actual xarray dataset
-        # which is then handled by the framework to write it to and load
-        # from the disk. The downstream tasks can refer to this output using
-        # FromTask("dataloader", LC_DATA_ID). What this would do is that
-        # internally, this would store the data and pass the stored paths,
-        # but to the user it looks like we are passing Datasets directly.
-        # This makes it Airflow compatible as well whilst making the steps
-        # modular by storing the intermediate results.
-        LC_DATA_ID: lc_cube,
-        "era5_data_id": era5_data_id,  # Here, we can pass
-        # a string (which is the data_id of this dataset, writing of this
-        # dataset is handled by this function itself) as well as key that its
-        # dependencies must refer to when they want to use this output as
-        # their input in FromTask class. e.g.
-        # FromTask("dataloader", "era5_data_id").
-    }
+    return results
 
 
 def _get_cds_data(context: BaseModel) -> str:
     store: DataStore = context.store
+    output_dir: str = context.store_kwargs.get('root')
 
     result = get_existing_data(
         store=store,
@@ -57,16 +53,23 @@ def _get_cds_data(context: BaseModel) -> str:
     if result is not None:
         return result
 
-    time_range = context.time_range
-    bbox = context.bbox
-    spatial_res = context.cds_spatial_res
+    time_range: list[str] = context.time_range
+    bbox: list[float] = context.bbox
+    spatial_res: float = context.cds_spatial_res
     bbox[0] = bbox[0] - spatial_res
     bbox[1] = bbox[1] - spatial_res
     bbox[2] = bbox[2] + spatial_res
     bbox[3] = bbox[3] + spatial_res
 
-    data_id = context.cds_data_id
-    variables_name = context.cds_variable_names
+    data_id: str = context.cds_data_id
+    variables_name: list[str] = context.cds_variable_names
+    if context.use_gleam == True:
+        variables_name = [
+            v for v in variables_name
+            if v != "potential_evaporation"
+        ]
+
+    log.info(f"Variables required from ERA5-Land, {variables_name}")
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
 
@@ -136,6 +139,7 @@ def _get_cds_data(context: BaseModel) -> str:
         LOG.info("Deleting chunked CDS data...")
         store.delete_data("era5_chunked.zarr")
     else:
+        print("store.protocol", store.protocol)
         if store.protocol == "s3":
             LOG.info("Using S3 storage")
             storage_options = {
@@ -148,7 +152,8 @@ def _get_cds_data(context: BaseModel) -> str:
         else:
             LOG.info("Using file storage")
             storage_options = {}
-            target_path = f"{OUTPUT_DIR}/{ERA5_DATA_ID}"
+            target_path = f"{output_dir}/{ERA5_DATA_ID}"
+
         total_time_steps = sum(ds.sizes["time"] for ds in datasets)
         config = {
             "target_dir": target_path,
@@ -184,6 +189,7 @@ def _get_cds_data(context: BaseModel) -> str:
 
 def _get_clms_data(context: BaseModel) -> str:
     store: DataStore = context.store
+    output_dir: str = context.store_kwargs.get("root")
 
     result = get_existing_data(
         store=store,
@@ -194,7 +200,7 @@ def _get_clms_data(context: BaseModel) -> str:
 
     LOG.info("Downloading CLMS Soil Moisture dataset...")
 
-    time_range: list = context.time_range
+    time_range: list[str] = context.time_range
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
 
@@ -271,7 +277,7 @@ def _get_clms_data(context: BaseModel) -> str:
     else:
         LOG.info("Using file storage")
         storage_options = {}
-        target_path = f"{OUTPUT_DIR}/{CLMS_DATA_ID}"
+        target_path = f"{output_dir}/{CLMS_DATA_ID}"
 
     config = {
         "target_dir": target_path,
@@ -298,23 +304,39 @@ def _get_clms_data(context: BaseModel) -> str:
     return CLMS_DATA_ID
 
 
-def _get_lc_data(context: BaseModel) -> xr.Dataset:
+def _get_lc_data(context: BaseModel) -> str:
     store: DataStore = context.store
 
-    result = get_existing_data(store=store, data_id=LC_DATA_ID, load=True)
+    result = get_existing_data(store=store, data_id=LC_DATA_ID)
     if result is not None:
         return result
 
-    LOG.info("Downloading LandCover dataset from S3...")
-    time = context.lc_time
+    LOG.info("Downloading LandCover dataset from CDS...")
 
-    store_lccs = new_data_store(
-        "s3", root="deep-esdl-public", storage_options=dict(anon=True)
+    data_id: str = context.lc_data_id
+    time_range: list[str] = context.lc_time_range
+    bbox: list[float] = context.bbox
+
+    cds_store = new_data_store("cds", normalize_names=True)
+    lc = cds_store.open_data(
+        data_id,
+        bbox=bbox,
+        time_range=time_range,
     )
-    mlds_lc = store_lccs.open_data("LC-1x2025x2025-2.0.0.levels")
 
-    lc = mlds_lc.base_dataset
-    lc = lc.sel(time=time)
     lc = lc[["crs", "lccs_class"]]
 
-    return lc
+    store.write_data(lc, LC_DATA_ID, replace=True)
+
+    return LC_DATA_ID
+
+
+def _get_gleam_data(context: BaseModel) -> str:
+    store: DataStore = context.store
+
+    LOG.info("Loading Gleam dataset from xcube storage...")
+    result = get_existing_data(store=store, data_id=GLEAM_DATA_ID)
+    assert result is not None, ("Gleam dataset must be provided locally in "
+                                "zarr format.")
+    return result
+

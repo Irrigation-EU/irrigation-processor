@@ -12,11 +12,15 @@ from irrigation_processor.constants import (
     LOG,
     PROCESSED_CLMS_DATA_ID,
 )
-from irrigation_processor.utils import convert_m_to_mm, get_existing_data
+from irrigation_processor.utils import convert_m_to_mm, get_existing_data, validate_dataset
 
 
 def irrigation_preprocessor(
-    context: BaseModel, sm_data_id: str, lc_cube: xr.Dataset, era5_data_id: str
+    context: BaseModel,
+        sm_data_id: str,
+        lc_data_id: str,
+        era5_vars_data_id: str,
+        gleam_data_id: str | None = None
 ) -> xr.Dataset:
     store: DataStore = context.store
 
@@ -26,20 +30,18 @@ def irrigation_preprocessor(
         load=True,
     )
     if result is not None:
+        validate_dataset(context, result)
         return result
 
     preprocessed_sm = _soil_moisture_preprocessor(context, sm_data_id)
-    preprocessed_lc = _land_cover_preprocessor(context, lc_cube)
-    preprocessed_era5 = _era5_preprocessor(context, era5_data_id)
+    preprocessed_lc = _land_cover_preprocessor(context, lc_data_id)
+    preprocessed_era5 = _era5_preprocessor(context, era5_vars_data_id)
+    preprocessed_gleam = _gleam_preprocessor(context, gleam_data_id)
 
-    merged_ds = _resample_and_merge(preprocessed_sm, preprocessed_lc, preprocessed_era5)
+    merged_ds = _resample_and_merge(preprocessed_sm, preprocessed_lc,
+                                    preprocessed_era5, preprocessed_gleam)
 
     LOG.info("preprocessing complete...")
-
-    # here we return the dataset as is. So, we can
-    # specify it in the output section of the registry for this step with a
-    # name that needs to be used by downstream tasks. If no output is
-    # described, it will raise an error.
     return merged_ds
 
 
@@ -55,7 +57,8 @@ def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Datas
         return result
 
     clms_data = store.open_data(sm_data_id)
-    bbox = context.bbox
+    validate_dataset(context, clms_data)
+    bbox: list[float] = context.bbox
 
     # Interpolation
     full_time = pd.date_range(
@@ -122,29 +125,24 @@ def _swicomp_nan(in_data, in_jd, ctime=2):
     return filtered
 
 
-def _land_cover_preprocessor(context: BaseModel, lc: xr.Dataset) -> xr.DataArray:
-    bbox = context.bbox
-    lc_subset = lc.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
+def _land_cover_preprocessor(context: BaseModel, lc_data_id: str) -> (
+        xr.DataArray):
+    store: DataStore = context.store
+    lc_cube = store.open_data(lc_data_id)
+    validate_dataset(context, lc_cube)
 
-    keep_classes = [
-        10,
-        11,
-        12,
-        20,
-        30,
-    ]  # These are classes in LandCover related to Croplands
+    keep_classes = context.lc_keep_classes
 
-    filtered_lc = lc_subset.lccs_class.where(lc_subset["lccs_class"].isin(keep_classes))
+    lc_binary = lc_cube.lccs_class.isin(keep_classes).astype("uint8")
 
-    keep_classes_np = np.array(keep_classes, dtype=filtered_lc.dtype)
     LOG.info("preprocessed land cover...")
-
-    return filtered_lc.isin(keep_classes_np).astype("uint8")
+    return lc_binary
 
 
 def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> xr.Dataset:
     store: DataStore = context.store
     cds_cube = store.open_data(cds_data_id)
+    validate_dataset(context, cds_cube)
 
     cds_cube["pev"] = cds_cube["pev"] * -1
     cds_cube["pev"] = convert_m_to_mm(cds_cube["pev"])
@@ -153,9 +151,21 @@ def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> xr.Dataset:
     LOG.info("preprocessed era5...")
     return cds_cube
 
+def _gleam_preprocessor(context: BaseModel, gleam_data_id: str) -> (xr.Dataset |
+                                                                  None):
+    if gleam_data_id is None:
+        return None
+
+    store: DataStore = context.store
+    gleam_cube = store.open_data(gleam_data_id)
+    bbox: list[float] = context.bbox
+
+    return gleam_cube.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
+
 
 def _resample_and_merge(
-    soil_moisture: xr.Dataset, lc: xr.DataArray, era5: xr.Dataset
+    soil_moisture: xr.Dataset, lc: xr.DataArray, era5: xr.Dataset,
+        preprocessed_gleam: xr.Dataset | None = None
 ) -> xr.Dataset:
     LOG.info("resampling...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
@@ -168,15 +178,23 @@ def _resample_and_merge(
     lc_in_gm_sm = resample_in_space(
         lc.to_dataset(name="lc_binary"), target_gm=gm_sm, agg_methods="mode"
     )
-    lc_in_gm_sm = lc_in_gm_sm.drop_vars("time")
+    lc_in_gm_sm = lc_in_gm_sm.squeeze("time", drop=True)
 
     cds_masked = cds_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
     soil_moisture_masked = soil_moisture.where(lc_in_gm_sm.lc_binary == 1)
 
     cds_masked_aligned = cds_masked.assign_coords(time=soil_moisture_masked.time)
 
-    LOG.info("merging...")
-    ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned])
+    if preprocessed_gleam is not None:
+        gleam_in_gm_sm = resample_in_space(preprocessed_gleam, target_gm=gm_sm)
+        gleam_masked = gleam_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
+
+        LOG.info("merging...")
+        ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned, gleam_masked])
+
+    else:
+        LOG.info("merging...")
+        ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned])
 
     chunked_ds = chunk_dataset(
         ds_combined,

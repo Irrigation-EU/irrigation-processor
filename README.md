@@ -497,6 +497,6 @@ Common causes:
 
 - temporal masking excluded those months
 - spatial mask threshold removed the area
-- precipitation signal too weak
+- irrigation did not occur
 
 Inspect postprocessing configuration.
