@@ -18,6 +18,8 @@ from irrigation_processor.ops.calibrator import (
 class DummyContext:
     def __init__(self, store):
         self.store = store
+        self.bbox = [-5, 40, 3, 44]
+        self.time_range = ["2024-01-01", "2024-01-02"]
 
 
 def make_calibrated_ds():
@@ -34,12 +36,34 @@ def make_calibrated_ds():
             )
         },
         coords={
-            "lat": [4, 5],
+            "lat": [5, 4],
             "lon": [5],
             "params": ["a", "b", "z", "RF"],
         },
     )
 
+def make_preprocessed_ds() -> xr.Dataset:
+    lat = np.arange(44, 39.9, -1.0)
+    lon = np.arange(-5, 3.1, 1.0)
+
+    time = pd.to_datetime(["2024-01-01", "2024-01-02"])
+
+    shape = (len(time), len(lat), len(lon))
+
+    ds = xr.Dataset(
+        {
+            "SWI": (("time", "lat", "lon"), np.zeros(shape)),
+            "tp": (("time", "lat", "lon"), np.zeros(shape)),
+            "pev": (("time", "lat", "lon"), np.zeros(shape)),
+        },
+        coords={
+            "time": time,
+            "lat": lat,
+            "lon": lon,
+        },
+    )
+
+    return ds
 
 class TestCalibrator(unittest.TestCase):
     def test_sm_inversion_basic_behavior(self):
@@ -166,7 +190,7 @@ class TestCalibrator(unittest.TestCase):
         ctx.check_calibration = False
 
         result = soil_moisture_inversion_calibration(
-            ctx, xr.Dataset(), dask_client=None
+            ctx, make_preprocessed_ds(), dask_client=None
         )
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
@@ -186,20 +210,12 @@ class TestCalibrator(unittest.TestCase):
         )
         ctx = DummyContext(store)
 
-        pre = xr.Dataset(
-            {
-                "SWI": (("time", "lat", "lon"), np.zeros((2, 1, 1))),
-                "tp": (("time", "lat", "lon"), np.zeros((2, 1, 1))),
-                "pev": (("time", "lat", "lon"), np.zeros((2, 1, 1))),
-            },
-            coords={"time": pd.to_datetime(("2020-01-01", "2020-01-02"))},
-        )
-
         ctx.allowed_months = [1]
         ctx.rainfall_threshold = 0.1
         ctx.check_calibration = False
 
-        result = soil_moisture_inversion_calibration(ctx, pre, dask_client=None)
+        result = soil_moisture_inversion_calibration(ctx, make_preprocessed_ds(),
+                                                     dask_client=None)
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
 
@@ -220,7 +236,7 @@ class TestCalibrator(unittest.TestCase):
 
         result = soil_moisture_inversion_calibration(
             ctx,
-            preprocessed_data=Mock(),
+            preprocessed_data=make_preprocessed_ds(),
             dask_client=None,
         )
 

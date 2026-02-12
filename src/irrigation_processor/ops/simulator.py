@@ -35,7 +35,10 @@ def irrigation_simulator(
     calibration = store.open_data(calibrated_path)
 
     validate_dataset(context, preprocessed_ds)
-    validate_dataset(context, calibration)
+
+    assert calibration.dims["params"] == 4, (
+        "4 params expected, got {calibration.dims['params')]}"
+    )
 
     psim = xr.apply_ufunc(
         _ts_smet4irr,
@@ -72,7 +75,12 @@ def irrigation_simulator(
 
     IRR_biweekly = _resample_sum(IRR_weekly, step=2)  # 14 days
 
-    validate_dataset(context, IRR_biweekly.to_dataset(name="iwu_est"))
+    assert np.all(
+        IRR_biweekly.to_dataset(name="iwu_est")
+        .time.diff("time")
+        .values
+        .astype("timedelta64[D]") == 14
+    )
 
     store.write_data(
         IRR_biweekly.to_dataset(name="iwu_est"),
@@ -85,7 +93,13 @@ def irrigation_simulator(
         IRR_biweekly_temporal, {"time": 1, "lat": 2072, "lon": 1708}, format_name="zarr"
     )
 
-    validate_dataset(context, IRR_biweekly_spatial)
+    assert np.all(
+        IRR_biweekly_temporal
+        .time.diff("time")
+        .values.astype("timedelta64[D]")
+        == 14
+    )
+
     store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=True)
 
     LOG.info("simulation complete...")

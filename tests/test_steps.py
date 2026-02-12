@@ -36,7 +36,7 @@ class TestPipelineDefinition(unittest.TestCase):
         self.assertEqual(meta.name, "dataloader")
         self.assertEqual(
             meta.outputs,
-            ("sm_data_id", LC_DATA_ID, "era5_data_id"),
+            ('sm_data_id', 'lc_data_id', 'era5_vars_data_id', 'gleam_data_id'),
         )
         self.assertEqual(meta.inputs, ())
         self.assertIsNone(meta.context_cls)
@@ -49,8 +49,9 @@ class TestPipelineDefinition(unittest.TestCase):
             meta.inputs,
             (
                 FromStep("dataloader", "sm_data_id"),
-                FromStep("dataloader", LC_DATA_ID),
-                FromStep("dataloader", "era5_data_id"),
+                FromStep("dataloader", "lc_data_id"),
+                FromStep("dataloader", "era5_vars_data_id"),
+                FromStep("dataloader", "gleam_data_id"),
             ),
         )
 
@@ -116,8 +117,7 @@ class TestPipelineDefinition(unittest.TestCase):
         params = list(sig.parameters.values())
 
         self.assertGreater(len(params), 1)
-        self.assertIn("lc_cube", sig.parameters)
-        self.assertEqual(sig.parameters["lc_cube"].annotation, xr.Dataset)
+        self.assertIn("lc_data_id", sig.parameters)
 
         for step in (calibration, simulation, postprocessing):
             sig = inspect.signature(step)
