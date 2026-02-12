@@ -11,9 +11,6 @@ Irrigation Processor is a scientific Python package for estimating irrigation
 water use (IWU) across **Europe** from soil moisture, meteorological variables, and land-cover 
 data using a reproducible, multi-step processing pipeline.
 
-The package is designed for large-scale geospatial analysis, supports caching 
-and restartability.
-
 This package was developed for the Irrigation-EU project funded by ESA.
 
 ## Overview
@@ -241,8 +238,9 @@ check what data already exists and write to it.
 
 `dask_client`
 
-Each step can also optionally recieve the `dask_client` if they wish to run their
-step using the local dask cluster to fasten the computations a bit.
+Each step can also optionally be run using dask if it has some computations with
+chunked dataset. The function can receive the `dask_client` if they wish to 
+run their step using the local dask cluster to fasten the computations a bit.
 
 To get this `dask_client`, add it as the last argument to your step
 
@@ -256,6 +254,9 @@ def calibration(context, preprocessed_data, dask_client):
 Now your step will be parallelized if it can be done by dask. 
 
 If not needed, simply omit it.
+
+To adjust your dask local parameters, you can supply that via `config.yml` using
+the `dask_kwargs` key under the `dask` key.
 
 ### Adding your own step
 
@@ -291,8 +292,6 @@ Use the output downstream
 FromStep("my_custom_step", "custom_output")
 ```
 
-That’s it — no pipeline wiring required.
-
 ### How everything fits together
 
 In summary:
@@ -315,7 +314,7 @@ This allows the pipeline to be:
 To run the pipeline:
 
 ```bash
-python -m src/irrigation-processor/main.py
+python src/irrigation-processor/main.py
 ```
 
 from the root of this project. 
@@ -335,27 +334,23 @@ You can modify the xcube storage to `s3` if needed.
 Currently, `file` data storage from xcube is used as default.
 The output directory for this default data store is `output_irrigation`
 
-To use the s3 storage, do this in the `main.py`:
+To use the s3 storage, adjust the `storage` values in the `config.yml`:
 
-```python
-storage = XcubeDataStoreStorage(
-    "s3",
-    store_kwargs=dict(
-        storage_options=dict(
-            anon=False,
-            key=os.getenv("XCUBE_AWS_ACCESS_KEY_ID"),
-            secret=os.getenv("XCUBE_AWS_SECRET_ACCESS_KEY"),
-            client_kwargs=dict(
-                endpoint_url=os.getenv("XCUBE_AWS_ENDPOINT_URL"),
-            ),
-        ),
-        root=os.getenv("XCUBE_BUCKET_NAME")",
-        max_depth=5,
-    ),
-)
+```yaml
+storage:
+  store_id: "s3"
+  store_kwargs:
+    root: "<your-bucket-name>"
+    max_depth: 5
+    storage_options:
+        anon: false
+        key: "your-access-key"
+        secret: "your-secret-key"
+        client_kwargs:
+          endpoint_url: "your-endpoint-url"
 ```
 
-Make sure you add the AWS creds to the `.env` file in the root folder.
+Make sure you also add the AWS creds to the `.env` file in the root folder.
 
 ```.dotenv
 # The following are for you xcube data storage
@@ -392,9 +387,10 @@ All outputs are stored using a xcube data store.
 
 Loads all required input datasets, such as:
 
-- soil moisture observations (CLMS)
-- land-cover maps (pre-computed available via deepESDL S3 bucket)
-- meteorological data (e.g. ERA5 precipitation and evaporation) (CDS)
+- soil moisture observations (`xcube-clms data store`)
+- land-cover maps (`xcube-cds data store`)
+- meteorological data from ERA5-Land (`xcube-cds data store`) / Gleam (`needs to be downloaded`, 
+we only use `potential_evaporation` from gleam dataset)
 
 ### 2. Preprocessing (`preprocessing`)
 
@@ -434,7 +430,7 @@ Uses the calibrated parameters to simulate irrigation water use over time.
 
 Conceptually:
 
-- soil moisture changes + meteorological forcing -> irrigation signal
+- soil moisture changes + meteorological variables -> irrigation signal
 - irrigation is aggregated to weekly and biweekly scales
 - thresholds are applied to remove noise and unrealistic values
 
@@ -456,10 +452,12 @@ chunks.
 
 ## How calibration works (conceptual)
 
-Calibration solves an inverse problem:
 
-    Given soil moisture dynamics and meteorological forcing, estimate 
-    parameters that best explain observed changes.
+    The parameters of the SM-Inversion are calibrated by optimizing the 
+    model performances in properly reproducing occurred rainfall amounts. 
+    To do this, the calibration is carried out during non-irrigation days 
+    (e.g., winter and days with rainfall occurrence during the irrigation 
+    season). 
 
 Key properties:
 
@@ -469,14 +467,14 @@ Key properties:
 
 Diagnostic statistics (e.g. number of unique parameter sets) can optionally be logged.
 
-### How simulation works (conceptual)
+## How simulation works (conceptual)
 
-Simulation uses the calibrated parameters to:
-
-- estimate irrigation contributions at each time step
-- remove small or spurious signals
-- aggregate to meaningful temporal scales
-- clip unrealistic values
+    Simulation uses the calibrated parameters to:
+    
+    - estimate irrigation contributions at each time step
+    - remove small or spurious signals
+    - aggregate to meaningful temporal scales
+    - clip unrealistic values
 
 This produces physically consistent irrigation estimates suitable for analysis.
 
