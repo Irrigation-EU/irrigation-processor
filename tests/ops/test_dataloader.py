@@ -429,11 +429,10 @@ class TestDataLoader(unittest.TestCase):
 
     @patch("irrigation_processor.ops.dataloader.get_existing_data")
     def test_get_lc_data_cached(self, mock_get_existing_data):
-        ds = xr.Dataset()
-        mock_get_existing_data.return_value = ds
+        mock_get_existing_data.return_value = "lc_data_id"
 
         result = _get_lc_data(self.context)
-        self.assertIs(result, ds)
+        self.assertIs(result, "lc_data_id")
 
     @patch("irrigation_processor.ops.dataloader.new_data_store")
     def test_get_lc_data_download(self, mock_new_store):

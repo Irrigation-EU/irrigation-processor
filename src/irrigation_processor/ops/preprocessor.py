@@ -35,6 +35,7 @@ def irrigation_preprocessor(
         load=True,
     )
     if result is not None:
+        assert isinstance(result, xr.Dataset)
         validate_dataset(context, result)
         return result
 
@@ -60,6 +61,7 @@ def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Datas
         load=True,
     )
     if result is not None:
+        assert isinstance(result, xr.Dataset)
         return result
 
     clms_data = store.open_data(sm_data_id)

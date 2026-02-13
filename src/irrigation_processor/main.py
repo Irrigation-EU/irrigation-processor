@@ -12,7 +12,7 @@ from irrigation_processor.utils import inject_dynamic_context_from_config
 load_dotenv()
 
 
-def execute_pipeline(config_file: Path, disable_steps: list[str] = None):
+def execute_pipeline(config_file: Path, disable_steps: list[str] | None = None):
     if disable_steps:
         for s in disable_steps:
             registry.disable(s)
