@@ -5,8 +5,7 @@ import yaml
 from dotenv import load_dotenv
 
 from irrigation_processor.constants import LOG
-from irrigation_processor.core import (LocalService, Pipeline,
-                                       XcubeDataStoreStorage)
+from irrigation_processor.core import LocalService, Pipeline, XcubeDataStoreStorage
 from irrigation_processor.steps import registry
 from irrigation_processor.utils import inject_dynamic_context_from_config
 

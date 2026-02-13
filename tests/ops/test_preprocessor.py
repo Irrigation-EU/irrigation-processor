@@ -149,11 +149,12 @@ class TestPreprocessor(unittest.TestCase):
 
         ctx = DummyContext(store)
 
-        out = irrigation_preprocessor(ctx, "sm", "lc", "era5")
+        out = irrigation_preprocessor(ctx, "sm", "lc", "era5", "gleam", None)
 
         self.assertIsInstance(out, xr.Dataset)
 
     @patch("irrigation_processor.ops.preprocessor._resample_and_merge")
+    @patch("irrigation_processor.ops.preprocessor._gleam_preprocessor")
     @patch("irrigation_processor.ops.preprocessor._era5_preprocessor")
     @patch("irrigation_processor.ops.preprocessor._land_cover_preprocessor")
     @patch("irrigation_processor.ops.preprocessor._soil_moisture_preprocessor")
@@ -162,6 +163,7 @@ class TestPreprocessor(unittest.TestCase):
         mock_sm,
         mock_lc,
         mock_era5,
+        mock_gleam,
         mock_merge,
     ):
         store = Mock()
@@ -173,8 +175,9 @@ class TestPreprocessor(unittest.TestCase):
         mock_lc.return_value = "LC"
         mock_era5.return_value = "ERA5"
         mock_merge.return_value = "MERGED"
+        mock_gleam.return_value = None
 
-        out = irrigation_preprocessor(ctx, "sm", "lc", "era5")
+        out = irrigation_preprocessor(ctx, "sm", "lc", "era5", "gleam", None)
 
         self.assertEqual(out, "MERGED")
         mock_merge.assert_called_once_with("SM", "LC", "ERA5", None)

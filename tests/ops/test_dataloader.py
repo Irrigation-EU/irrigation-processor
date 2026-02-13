@@ -155,7 +155,7 @@ class TestDataLoader(unittest.TestCase):
         self.assertEqual(result["sm_data_id"], CLMS_DATA_ID)
         self.assertEqual(result["era5_vars_data_id"], ERA5_DATA_ID)
         self.assertEqual(result["lc_data_id"], LC_DATA_ID)
-        self.assertEqual(result["gleam_data_id"], "")
+        self.assertEqual(result["gleam_data_id"], None)
 
     @patch("irrigation_processor.ops.dataloader.split_date_range")
     def test_get_cds_data_cached(self, mock_split):
@@ -198,7 +198,7 @@ class TestDataLoader(unittest.TestCase):
         self.store.write_data.assert_any_call(
             ds,
             "era5/era5-2020_01_01-2020_01_02.zarr",
-            replace=True,
+            replace=False,
         )
 
         mock_zappend.assert_called_once()
@@ -306,7 +306,7 @@ class TestDataLoader(unittest.TestCase):
 
         self.assertEqual(result, ERA5_DATA_ID)
         self.store.write_data.assert_any_call(
-            ds, "era5/era5-2020_01_01-2020_01_02.zarr", replace=True
+            ds, "era5/era5-2020_01_01-2020_01_02.zarr", replace=False
         )
 
         calls = self.store.write_data.call_args_list
@@ -369,7 +369,7 @@ class TestDataLoader(unittest.TestCase):
         self.store.write_data.assert_any_call(
             ds.rename({"x": "lon", "y": "lat"}),
             "clms/clms_sm-2020_01_01-2020_01_02.zarr",
-            replace=True,
+            replace=False,
         )
 
         mock_zappend.assert_called_once()
