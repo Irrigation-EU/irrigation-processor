@@ -18,14 +18,14 @@ from irrigation_processor.constants import (
 from irrigation_processor.utils import get_existing_data, split_date_range
 
 
-def load_data(context: BaseModel) -> dict:
+def load_data(context: BaseModel) -> dict[str, str | None]:
     LOG.info("loading data...")
 
     era5_data_id = _get_cds_data(context)
     sm_data_id = _get_clms_data(context)
     lc_data_id = _get_lc_data(context)
 
-    results = {
+    results: dict[str, str | None] = {
         "sm_data_id": sm_data_id,
         "lc_data_id": lc_data_id,
         "era5_vars_data_id": era5_data_id,
@@ -50,6 +50,7 @@ def _get_cds_data(context: BaseModel) -> str:
         data_id=ERA5_DATA_ID,
     )
     if result is not None:
+        assert isinstance(result, str)
         return result
 
     time_range: list[str] = context.time_range
@@ -191,6 +192,7 @@ def _get_clms_data(context: BaseModel) -> str:
         data_id=CLMS_DATA_ID,
     )
     if result is not None:
+        assert isinstance(result, str)
         return result
 
     LOG.info("Downloading CLMS Soil Moisture dataset...")
@@ -257,7 +259,8 @@ def _get_clms_data(context: BaseModel) -> str:
         [data_id for data_id in all_data_ids if f"{CLMS_SUBDIR}/" in data_id]
     )
     datasets = []
-    [datasets.append(store.open_data(data_id)) for data_id in sorted(data_ids)]
+    for data_id in sorted(data_ids):
+        datasets.append(store.open_data(data_id))
     total_time_steps = sum(ds.sizes["time"] for ds in datasets)
 
     if store.protocol == "s3":
@@ -304,6 +307,7 @@ def _get_lc_data(context: BaseModel) -> str:
 
     result = get_existing_data(store=store, data_id=LC_DATA_ID)
     if result is not None:
+        assert isinstance(result, str)
         return result
 
     LOG.info("Downloading LandCover dataset from CDS...")
@@ -332,4 +336,5 @@ def _get_gleam_data(context: BaseModel) -> str:
     LOG.info("Loading Gleam dataset from xcube storage...")
     result = get_existing_data(store=store, data_id=GLEAM_DATA_ID)
     assert result is not None, "Gleam dataset must be provided locally in zarr format."
+    assert isinstance(result, str)
     return result

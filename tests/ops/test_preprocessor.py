@@ -182,16 +182,18 @@ class TestPreprocessor(unittest.TestCase):
         self.assertEqual(out, "MERGED")
         mock_merge.assert_called_once_with("SM", "LC", "ERA5", None)
 
-    def test_soil_moisture_preprocessor_cached(self):
+    @patch("irrigation_processor.ops.preprocessor.validate_dataset")
+    def test_soil_moisture_preprocessor_cached(self, mock_validate):
         store = Mock()
         store.list_data_ids.return_value = [PROCESSED_CLMS_DATA_ID]
-        store.open_data.return_value = "CACHED_SWI"
+        store.open_data.return_value = xr.Dataset()
+        mock_validate.return_value = None
 
         ctx = DummyContext(store)
 
         out = _soil_moisture_preprocessor(ctx, "sm")
 
-        self.assertEqual(out, "CACHED_SWI")
+        self.assertTrue(out.equals(xr.Dataset()))
 
     def test_soil_moisture_preprocessor(self):
         store = Mock()
