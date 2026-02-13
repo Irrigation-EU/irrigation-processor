@@ -13,7 +13,6 @@ from irrigation_processor.constants import (CLMS_DATA_ID, ERA5_DATA_ID,
 from irrigation_processor.utils import get_existing_data, split_date_range
 
 
-# TODO: Maybe use protocol instead of BaseModel?
 def load_data(context: BaseModel) -> dict:
     LOG.info("loading data...")
 
@@ -31,7 +30,7 @@ def load_data(context: BaseModel) -> dict:
         gleam_data_id = _get_gleam_data(context)
         results["gleam_data_id"] = gleam_data_id
     else:
-        results["gleam_data_id"] = ""
+        results["gleam_data_id"] = None
 
     LOG.info("data loaded...")
     return results
@@ -131,7 +130,6 @@ def _get_cds_data(context: BaseModel) -> str:
         LOG.info("Deleting chunked CDS data...")
         store.delete_data("era5_chunked.zarr")
     else:
-        print("store.protocol", store.protocol)
         if store.protocol == "s3":
             LOG.info("Using S3 storage")
             storage_options = {

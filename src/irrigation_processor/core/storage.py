@@ -61,6 +61,9 @@ class XcubeDataStoreStorage(Storage):
         if isinstance(obj, (int, float, str, bool)):
             return {"inline": True, "value": obj, "type": type(obj).__name__}
 
+        if obj is None:
+            return {"inline": True, "value": None, "type": type(obj).__name__}
+
         if isinstance(obj, xr.Dataset):
             data_id = key
             data_ids = self.store.list_data_ids()
