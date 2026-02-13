@@ -76,7 +76,7 @@ class XcubeDataStoreStorage(Storage):
             LOG.info(
                 f"Data id {data_id} does not exist in the xcube data store. Writing to it."
             )
-            self.store.write_data(obj, data_id)
+            self.store.write_data(obj, data_id, replace=False)
             return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
 
         raise RuntimeError(f"Unknown storage format: {type(obj)}")
