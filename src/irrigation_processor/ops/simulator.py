@@ -82,7 +82,7 @@ def irrigation_simulator(
     store.write_data(
         IRR_biweekly.to_dataset(name="iwu_est"),
         IWU_ESTIMATES_TEMPORAL_ID,
-        replace=True,
+        replace=False,
     )
 
     IRR_biweekly_temporal = store.open_data("iwu_estimates_temporal.zarr")
@@ -94,7 +94,7 @@ def irrigation_simulator(
         IRR_biweekly_temporal.time.diff("time").values.astype("timedelta64[D]") == 14
     )
 
-    store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=True)
+    store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=False)
 
     LOG.info("simulation complete...")
     return {

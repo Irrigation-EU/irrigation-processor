@@ -89,7 +89,7 @@ def _get_cds_data(context: BaseModel) -> str:
         store.write_data(
             cds_cube,
             filename,
-            replace=True,
+            replace=False,
         )
 
     all_data_ids = store.list_data_ids()
@@ -120,13 +120,13 @@ def _get_cds_data(context: BaseModel) -> str:
         LOG.info("Chunking CDS data...")
         ds = chunk_dataset(ds, {"time": 10, "lat": 178, "lon": 306}, format_name="zarr")
         LOG.info("Writing chunked CDS data...")
-        store.write_data(ds, "era5_chunked.zarr")
+        store.write_data(ds, "era5_chunked.zarr", replace=False)
 
         ds = store.open_data("era5_chunked.zarr")
         LOG.info("Rechunking CDS data to make it time optimized...")
         ds = chunk_dataset(ds, {"time": -1, "lat": 50, "lon": 50}, format_name="zarr")
         LOG.info("Writing final CDS data...")
-        store.write_data(ds, ERA5_DATA_ID)
+        store.write_data(ds, ERA5_DATA_ID, replace=False)
         LOG.info("Deleting chunked CDS data...")
         store.delete_data("era5_chunked.zarr")
     else:
@@ -148,7 +148,7 @@ def _get_cds_data(context: BaseModel) -> str:
         config = {
             "target_dir": target_path,
             "target_storage_options": storage_options,
-            "force_new": True,
+            "force_new": False,
             "logging": True,
             "excluded_variables": ["expver", "number"],
             "append_dim": "time",
@@ -225,7 +225,7 @@ def _get_clms_data(context: BaseModel) -> str:
                 clms_data = clms_data.rename({"x": "lon", "y": "lat"})
 
                 LOG.info("Writing data...")
-                store.write_data(clms_data, filename, replace=True)
+                store.write_data(clms_data, filename, replace=False)
 
                 LOG.info(f"Done: {_time_range}")
 
@@ -272,7 +272,7 @@ def _get_clms_data(context: BaseModel) -> str:
     config = {
         "target_dir": target_path,
         "target_storage_options": storage_options,
-        "force_new": True,
+        "force_new": False,
         "logging": True,
         "excluded_variables": ["expver", "number"],
         "append_dim": "time",
@@ -316,7 +316,7 @@ def _get_lc_data(context: BaseModel) -> str:
 
     lc = lc[["crs", "lccs_class"]]
 
-    store.write_data(lc, LC_DATA_ID, replace=True)
+    store.write_data(lc, LC_DATA_ID, replace=False)
 
     return LC_DATA_ID
 

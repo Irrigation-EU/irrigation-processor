@@ -70,7 +70,7 @@ def soil_moisture_inversion_calibration(
     for i, subresult in enumerate(subresults):
         if store.has_data(f"calibrated_{i}.zarr"):
             continue
-        store.write_data(subresult, f"calibrated_{i}.zarr", replace=True)
+        store.write_data(subresult, f"calibrated_{i}.zarr", replace=False)
 
     data_ids = store.list_data_ids()
     data_ids_cal = [data_id for data_id in data_ids if "calibrated_" in data_id]
@@ -90,7 +90,7 @@ def soil_moisture_inversion_calibration(
         "4 params expected, got {chunked_ds.dims['params')]}"
     )
 
-    store.write_data(chunked_ds, CALIBRATED_ID, replace=True)
+    store.write_data(chunked_ds, CALIBRATED_ID, replace=False)
 
     for data_id in data_ids_cal:
         store.delete_data(data_id)
