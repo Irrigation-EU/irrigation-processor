@@ -330,6 +330,17 @@ execute_pipeline(
 )
 ```
 
+> Note:
+> If you plan to use variables from the Gleam dataset, this pipeline currently 
+> expects the dataset to be available in your selected xcube data store. 
+> 
+> Please download the dataset from the [here](https://www.gleam.eu/#downloads) and make sure it is 
+> accessible in your configured data store before running the pipeline.
+> 
+> For e.g. if using file store, add it in the root folder of the xcube data 
+> store, similarly for S3 store, add it to the bucket with the following name
+> `gleamv4_2b.zarr`
+
 You can modify the xcube storage to `s3` if needed. 
 Currently, `file` data storage from xcube is used as default.
 The output directory for this default data store is `output_irrigation`
@@ -389,7 +400,8 @@ Loads all required input datasets, such as:
 
 - soil moisture observations (`xcube-clms data store`)
 - land-cover maps (`xcube-cds data store`)
-- meteorological data from ERA5-Land (`xcube-cds data store`) / Gleam (`needs to be downloaded`, 
+- meteorological data from ERA5-Land (`xcube-cds data store`) / Gleam (needs 
+to be [downloaded](https://www.gleam.eu/#downloads), 
 we only use `potential_evaporation` from gleam dataset)
 
 ### 2. Preprocessing (`preprocessing`)
