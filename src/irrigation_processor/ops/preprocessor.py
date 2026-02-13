@@ -18,7 +18,8 @@ def irrigation_preprocessor(
     sm_data_id: str,
     lc_data_id: str,
     era5_vars_data_id: str,
-    gleam_data_id: str | None = None,
+    gleam_data_id: str | None,
+    dask_client
 ) -> xr.Dataset:
     store: DataStore = context.store
 
