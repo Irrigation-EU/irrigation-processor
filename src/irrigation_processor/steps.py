@@ -33,13 +33,12 @@ def preprocessing(
     lc_data_id: str,
     era5_vars_data_id: str,
     gleam_data_id: str,
-    dask_client
+    dask_client,
 ):
     from irrigation_processor.ops.preprocessor import irrigation_preprocessor
 
     return irrigation_preprocessor(
-        context, sm_data_id, lc_data_id, era5_vars_data_id, gleam_data_id,
-        dask_client
+        context, sm_data_id, lc_data_id, era5_vars_data_id, gleam_data_id, dask_client
     )
 
 
@@ -52,8 +51,7 @@ def preprocessing(
     outputs=("calibrated_data_id",),
 )
 def calibration(context: BaseModel, preprocessed_data: xr.Dataset, dask_client):
-    from irrigation_processor.ops.calibrator import \
-        soil_moisture_inversion_calibration
+    from irrigation_processor.ops.calibrator import soil_moisture_inversion_calibration
 
     return soil_moisture_inversion_calibration(context, preprocessed_data, dask_client)
 

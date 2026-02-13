@@ -10,7 +10,8 @@ from xcube_resampling.gridmapping import GridMapping
 
 from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
+    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
+)
 from irrigation_processor.utils import get_existing_data
 
 
@@ -47,13 +48,16 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
     assert np.all(
         filtered_spatial.time.diff("time").values.astype("timedelta64[D]") == 14
     )
-    store.write_data(filtered_spatial,
-                     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID, replace=False)
+    store.write_data(
+        filtered_spatial, IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID, replace=False
+    )
 
     assert np.all(
         filtered_temporal.time.diff("time").values.astype("timedelta64[D]") == 14
     )
-    store.write_data(filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID, replace=False)
+    store.write_data(
+        filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID, replace=False
+    )
 
     return {
         "iwu_postprocessed_spatial_path": IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,

@@ -73,7 +73,7 @@ class TestStorage(unittest.TestCase):
 
         meta = storage.save("data2", ds)
 
-        store.write_data.assert_called_once_with(ds, "data2")
+        store.write_data.assert_called_once_with(ds, "data2", replace=False)
         self.assertEqual(
             meta,
             {"inline": False, "data_id": "data2", "type": "Dataset"},

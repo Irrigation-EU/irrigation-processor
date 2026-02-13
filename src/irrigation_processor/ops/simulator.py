@@ -3,8 +3,11 @@ import xarray as xr
 from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
 
-from irrigation_processor.constants import (IWU_ESTIMATES_SPATIAL_ID,
-                                            IWU_ESTIMATES_TEMPORAL_ID, LOG)
+from irrigation_processor.constants import (
+    IWU_ESTIMATES_SPATIAL_ID,
+    IWU_ESTIMATES_TEMPORAL_ID,
+    LOG,
+)
 from irrigation_processor.utils import get_existing_data, validate_dataset
 
 

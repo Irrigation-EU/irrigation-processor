@@ -140,10 +140,12 @@ class TestPostprocessor(unittest.TestCase):
         store.write_data.assert_any_call(
             unittest.mock.ANY,
             IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
+            replace=False,
         )
         store.write_data.assert_any_call(
             unittest.mock.ANY,
             IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
+            replace=False,
         )
 
         self.assertEqual(
