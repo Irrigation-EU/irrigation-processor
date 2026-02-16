@@ -1,6 +1,5 @@
 import unittest
 
-from pydantic import BaseModel
 
 from irrigation_processor.core.pipeline import FromStep, StepMeta, StepRegistry
 

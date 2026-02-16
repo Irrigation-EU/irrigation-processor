@@ -3,15 +3,13 @@ import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
-import pandas as pd
 import xarray as xr
-from pydantic import BaseModel, ConfigDict
 
 from irrigation_processor.constants import (CLMS_DATA_ID, ERA5_DATA_ID,
                                             LC_DATA_ID)
 from irrigation_processor.ops.dataloader import (_get_cds_data, _get_clms_data,
                                                  _get_lc_data, load_data)
-from tests.helpers import DummyContext, make_era5_ds, make_iwu_ds, make_mask_ds
+from tests.helpers import DummyContext, make_era5_ds
 from tests.helpers import make_preprocessed_ds as make_daily_era5_ds
 from tests.helpers import make_raw_clms_ds as make_clms_ds
 

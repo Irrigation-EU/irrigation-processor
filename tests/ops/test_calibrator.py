@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import Mock, patch
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 from irrigation_processor.constants import CALIBRATED_ID
