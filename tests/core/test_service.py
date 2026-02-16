@@ -2,11 +2,9 @@ import json
 import os
 import tempfile
 import unittest
-from typing import Any
 from unittest.mock import Mock, patch
 
 import xarray as xr
-from pydantic import BaseModel, Field
 
 from irrigation_processor.core.service import (LocalService,
                                                save_pipeline_step_state)
