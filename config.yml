@@ -1,6 +1,6 @@
 base:
-  time_range: ["2020-01-01", "2020-01-15"]
-  bbox: [-5, 40, 3, 44]
+  time_range: ["2020-01-01", "2020-02-20"]
+  bbox: [-5, 40, 4, 45]
   use_gleam: false # if we want to the `potential_evaporation` from gleam dataset or not
 
 dataloader:
@@ -37,10 +37,16 @@ postprocessing:
   spatial_mask_threshold: 5
 
 storage:
-  store_id: "file"
+  store_id: "s3"
   store_kwargs:
-    root: "output_irrigation"
+    root: "irrigation-ouptuts"
     max_depth: 5
+    storage_options:
+        anon: false
+        key: "minioadmin"
+        secret: "minioadmin"
+        client_kwargs:
+          endpoint_url: "http://127.0.0.1:9000"
 
 dask:
   dask_kwargs:

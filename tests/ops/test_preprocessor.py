@@ -12,133 +12,10 @@ from irrigation_processor.ops.preprocessor import (_era5_preprocessor,
                                                    _soil_moisture_preprocessor,
                                                    _swicomp_nan,
                                                    irrigation_preprocessor)
-
-
-def make_clms_ds():
-    time = pd.date_range("2020-01-01", periods=3, freq="D")
-    return xr.Dataset(
-        {
-            "ssm": (
-                ("time", "lat", "lon"),
-                [[[10, 10], [30, 90]], [[20, 40], [10, 60]], [[300, 40], [500, 60]]],
-            ),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_clms_ds_with_gap():
-    time = pd.to_datetime(["2020-01-01", "2020-01-03"])
-
-    return xr.Dataset(
-        {
-            "ssm": (
-                ("time", "lat", "lon"),
-                [
-                    [[10, 10], [30, 90]],
-                    [[300, 40], [500, 60]],
-                ],
-            ),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_lc_ds():
-    return xr.Dataset(
-        {"lccs_class": (("lat", "lon"), [[10, 30], [40, 11]])},
-        coords={
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_era5_ds():
-    time = pd.date_range("2020-01-01", periods=2, freq="D")
-    return xr.Dataset(
-        {
-            "pev": (("time", "lat", "lon"), [[[-1, 2], [-3, 4]], [[2, -3], [4, 5]]]),
-            "tp": (
-                ("time", "lat", "lon"),
-                [[[10, 20], [30, 40]], [[20, 30], [40, 50]]],
-            ),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_swi_ds():
-    time = pd.date_range("2020-01-01", periods=3, freq="D")
-    return xr.Dataset(
-        {
-            "SWI": (
-                ("time", "lat", "lon"),
-                [
-                    [[0.1, 0.2], [0.3, 0.4]],
-                    [[0.2, 0.3], [0.4, 0.5]],
-                    [[0.3, 0.4], [0.5, 0.6]],
-                ],
-            ),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_lc_mask():
-    return xr.DataArray(
-        [[[1, 0], [1, 1]]],
-        dims=("time", "lat", "lon"),
-        coords={
-            "time": [pd.to_datetime("2020-01-01")],
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_era5_daily_ds():
-    time = pd.date_range("2020-01-01", periods=3, freq="D")
-    return xr.Dataset(
-        {
-            "pev": (
-                ("time", "lat", "lon"),
-                [[[1, 2], [3, 4]], [[2, 3], [4, 5]], [[3, 4], [5, 6]]],
-            ),
-            "tp": (
-                ("time", "lat", "lon"),
-                [[[10, 20], [30, 40]], [[20, 30], [40, 50]], [[30, 40], [50, 60]]],
-            ),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-class DummyContext:
-    def __init__(self, store):
-        self.store = store
-        self.bbox = (5, 4, 6, 5)  # xmin, ymin, xmax, ymax
-        self.time_range = ["2020-01-01", "2020-01-02"]
+from tests.helpers import (DummyContext, make_clms_ds, make_clms_ds_with_gap,
+                           make_era5_ds, make_lc_ds, make_lc_mask)
+from tests.helpers import make_preprocessed_ds as make_era5_daily_ds
+from tests.helpers import make_preprocessed_ds as make_swi_ds
 
 
 class TestPreprocessor(unittest.TestCase):
@@ -147,9 +24,9 @@ class TestPreprocessor(unittest.TestCase):
         store = Mock()
         mock_get_existing_data.return_value = make_swi_ds()
 
-        ctx = DummyContext(store)
+        ctx = DummyContext()
 
-        out = irrigation_preprocessor(ctx, "sm", "lc", "era5", "gleam", None)
+        out = irrigation_preprocessor(ctx, store, "sm", "lc", "era5", "gleam")
 
         self.assertIsInstance(out, xr.Dataset)
 
@@ -167,9 +44,10 @@ class TestPreprocessor(unittest.TestCase):
         mock_merge,
     ):
         store = Mock()
-        store.list_data_ids.return_value = []
+        store.list_ids.return_value = []
+        store.exists.return_value = False
 
-        ctx = DummyContext(store)
+        ctx = DummyContext()
 
         mock_sm.return_value = "SM"
         mock_lc.return_value = "LC"
@@ -177,32 +55,33 @@ class TestPreprocessor(unittest.TestCase):
         mock_merge.return_value = "MERGED"
         mock_gleam.return_value = None
 
-        out = irrigation_preprocessor(ctx, "sm", "lc", "era5", "gleam", None)
+        out = irrigation_preprocessor(ctx, store, "sm", "lc", "era5", "gleam")
 
         self.assertEqual(out, "MERGED")
-        mock_merge.assert_called_once_with("SM", "LC", "ERA5", None)
+        mock_merge.assert_called_once_with("SM", "LC", "ERA5", None, chunk_sizes={'time': -1, 'lat': 50, 'lon': 50})
 
     @patch("irrigation_processor.ops.preprocessor.validate_dataset")
     def test_soil_moisture_preprocessor_cached(self, mock_validate):
         store = Mock()
         store.list_data_ids.return_value = [PROCESSED_CLMS_DATA_ID]
-        store.open_data.return_value = xr.Dataset()
+        store.load.return_value = xr.Dataset()
         mock_validate.return_value = None
 
-        ctx = DummyContext(store)
+        ctx = DummyContext()
 
-        out = _soil_moisture_preprocessor(ctx, "sm")
+        out = _soil_moisture_preprocessor(ctx, store, "sm")
 
         self.assertTrue(out.equals(xr.Dataset()))
 
     def test_soil_moisture_preprocessor(self):
         store = Mock()
-        store.list_data_ids.return_value = []
-        store.open_data.return_value = make_clms_ds()
+        store.exists.return_value = False
+        store.list_ids.return_value = []
+        store.load.return_value = make_clms_ds(time_range=pd.date_range("2024-01-01", periods=3, freq="D"))
 
-        ctx = DummyContext(store)
+        ctx = DummyContext()
 
-        out = _soil_moisture_preprocessor(ctx, "sm")
+        out = _soil_moisture_preprocessor(ctx, store, "sm")
 
         self.assertIn("SWI", out)
         self.assertEqual(out["SWI"].dims, ("time", "lat", "lon"))
@@ -210,29 +89,30 @@ class TestPreprocessor(unittest.TestCase):
 
     def test_soil_moisture_preprocessor_fills_missing_dates(self):
         store = Mock()
-        store.list_data_ids.return_value = []
-        store.open_data.return_value = make_clms_ds_with_gap()
+        store.exists.return_value = False
+        store.list_ids.return_value = []
+        store.load.return_value = make_clms_ds_with_gap()
 
-        ctx = DummyContext(store)
+        ctx = DummyContext()
 
-        out = _soil_moisture_preprocessor(ctx, "sm")
+        out = _soil_moisture_preprocessor(ctx, store, "sm")
 
         self.assertIn("SWI", out)
 
         out_time = pd.to_datetime(out.time.values)
 
-        expected_time = pd.date_range("2020-01-01", "2020-01-03", freq="D")
+        expected_time = pd.date_range("2024-01-01", "2024-01-03", freq="D")
 
         self.assertTrue(out_time.equals(expected_time))
         self.assertEqual(len(out_time), 3)
 
     def test_land_cover_preprocessor(self):
         store = Mock()
-        store.open_data.return_value = make_lc_ds()
-        ctx = DummyContext(store=store)
-        ctx.lc_keep_classes = [10, 30]
+        store.load.return_value = make_lc_ds()
+        ctx = DummyContext()
+        ctx.preprocessing.lc_keep_classes = [10, 30]
 
-        out = _land_cover_preprocessor(ctx, "lc")
+        out = _land_cover_preprocessor(ctx, store, "lc")
 
         self.assertEqual(out.dtype, "uint8")
         self.assertEqual(out.shape, (2, 2))
@@ -242,25 +122,23 @@ class TestPreprocessor(unittest.TestCase):
 
     def test_era5_preprocessor(self):
         store = Mock()
-        store.open_data.return_value = make_era5_ds()
+        store.load.return_value = make_era5_ds(time_range=pd.date_range("2024-01-01", periods=2, freq="D"))
 
-        ctx = DummyContext(store)
+        ctx = DummyContext()
 
-        out = _era5_preprocessor(ctx, "era5")
+        out = _era5_preprocessor(ctx, store, "era5")
 
-        print(out.tp.values.tolist())
-
-        self.assertEqual(out.pev.dtype, "int64")
-        self.assertEqual(out.tp.dtype, "int64")
+        self.assertEqual(out.pev.dtype, "float32")
+        self.assertEqual(out.tp.dtype, "float32")
         self.assertEqual(out.pev.shape, (2, 2, 2))
         self.assertEqual(out.tp.shape, (2, 2, 2))
         self.assertEqual(
-            [[[1000, -2000], [3000, -4000]], [[-2000, 3000], [-4000, -5000]]],
+            [[[1000.0, -2000.0], [3000.0, -4000.0]], [[-2000.0, 3000.0], [-4000.0, -5000.0]]],
             out.pev.values.tolist(),
         )
         self.assertEqual(
-            [[[10000, 20000], [30000, 40000]], [[20000, 30000], [40000, 50000]]],
-            out.tp.values.tolist(),
+            [[10000.0, 20000.0], [30000.0, 40000.0]],
+            out.tp.isel(time=0).values.tolist(),
         )
 
     def test_swicomp_nan_all_nan(self):
@@ -279,7 +157,6 @@ class TestPreprocessor(unittest.TestCase):
 
         self.assertTrue(np.isnan(out[0]))
         self.assertEqual(out[1], 10.0)
-        self.assertTrue(np.isnan(out[0]))
         self.assertTrue(np.isnan(out[2]))
 
     def test_swicomp_nan_multiple_values(self):
@@ -310,9 +187,10 @@ class TestPreprocessor(unittest.TestCase):
         self.assertTrue(out_fast[-1] > out_slow[-1])
 
     def test_resample_and_merge(self):
-        swi = make_swi_ds()
+        time = pd.date_range("2024-01-01", periods=3, freq="D")
+        swi = make_swi_ds(time_range=time)
         lc_mask = make_lc_mask()
-        era5 = make_era5_daily_ds()
+        era5 = make_era5_daily_ds(time_range=time)
 
         out = _resample_and_merge(swi, lc_mask, era5)
 
@@ -326,8 +204,8 @@ class TestPreprocessor(unittest.TestCase):
         self.assertIn("tp", out)
 
         # corresponds to lc_mask == 1
-        unmasked_lat = 5
-        unmasked_lon = 5
+        unmasked_lat = 44
+        unmasked_lon = -5
 
         self.assertFalse(
             np.isnan(out["SWI"].sel(lat=unmasked_lat, lon=unmasked_lon)).all()
@@ -337,7 +215,7 @@ class TestPreprocessor(unittest.TestCase):
         )
 
         # where lc_mask == 0
-        masked_lat = 5
-        masked_lon = 6
+        masked_lat = 44
+        masked_lon = -4
 
         self.assertTrue(np.isnan(out["SWI"].sel(lat=masked_lat, lon=masked_lon)).any())

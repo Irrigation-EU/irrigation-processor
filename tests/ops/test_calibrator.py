@@ -9,58 +9,8 @@ from irrigation_processor.constants import CALIBRATED_ID
 from irrigation_processor.ops.calibrator import (
     calib_sm_inversion, calib_wrapper, cost_fun, sm_inversion,
     soil_moisture_inversion_calibration)
-
-
-class DummyContext:
-    def __init__(self, store):
-        self.store = store
-        self.bbox = [-5, 40, 3, 44]
-        self.time_range = ["2024-01-01", "2024-01-02"]
-
-
-def make_calibrated_ds():
-    return xr.Dataset(
-        {
-            "calibration": (
-                ("lat", "lon", "params"),
-                np.array(
-                    [
-                        [[1.0, 2.0, 3.0, 4.0]],
-                        [[np.nan, np.nan, np.nan, np.nan]],
-                    ]
-                ),
-            )
-        },
-        coords={
-            "lat": [5, 4],
-            "lon": [5],
-            "params": ["a", "b", "z", "RF"],
-        },
-    )
-
-
-def make_preprocessed_ds() -> xr.Dataset:
-    lat = np.arange(44, 39.9, -1.0)
-    lon = np.arange(-5, 3.1, 1.0)
-
-    time = pd.to_datetime(["2024-01-01", "2024-01-02"])
-
-    shape = (len(time), len(lat), len(lon))
-
-    ds = xr.Dataset(
-        {
-            "SWI": (("time", "lat", "lon"), np.zeros(shape)),
-            "tp": (("time", "lat", "lon"), np.zeros(shape)),
-            "pev": (("time", "lat", "lon"), np.zeros(shape)),
-        },
-        coords={
-            "time": time,
-            "lat": lat,
-            "lon": lon,
-        },
-    )
-
-    return ds
+from tests.helpers import (DummyContext, make_calibration_ds,
+                           make_preprocessed_ds)
 
 
 class TestCalibrator(unittest.TestCase):
@@ -179,8 +129,8 @@ class TestCalibrator(unittest.TestCase):
 
     def test_calibration_cached(self):
         store = Mock()
-        store.list_data_ids.return_value = [CALIBRATED_ID]
-        store.open_data.return_value = xr.Dataset(
+        store.exists.return_value = True
+        store.load.return_value = xr.Dataset(
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}
         )
 
@@ -188,7 +138,7 @@ class TestCalibrator(unittest.TestCase):
         ctx.check_calibration = False
 
         result = soil_moisture_inversion_calibration(
-            ctx, make_preprocessed_ds(), dask_client=None
+            ctx, store, make_preprocessed_ds()
         )
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
@@ -197,28 +147,24 @@ class TestCalibrator(unittest.TestCase):
         self,
     ):
         store = Mock()
-        store.list_data_ids.side_effect = [
-            [],  # no calibrated data
-            ["calibrated_0.zarr"],
-            ["calibrated_0.zarr"],
-        ]
-        store.has_data.return_value = False
-        store.open_data.return_value = xr.Dataset(
+        store.exists.side_effect = [False, False, False, False, False, True] # Check existing, then check for subresults
+        store.list_ids.return_value = ["calibrated_0.zarr"]
+        store.load.return_value = xr.Dataset(
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}
         )
         ctx = DummyContext(store)
 
-        ctx.allowed_months = [1]
-        ctx.rainfall_threshold = 0.1
-        ctx.check_calibration = False
+        ctx.calibration.allowed_months = [1]
+        ctx.calibration.rainfall_threshold = 0.1
+        ctx.calibration.check_calibration = False
 
         result = soil_moisture_inversion_calibration(
-            ctx, make_preprocessed_ds(), dask_client=None
+            ctx, store, make_preprocessed_ds()
         )
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
 
-        written_ds = store.write_data.call_args_list[-1][0][0]
+        written_ds = store.save.call_args_list[-2][0][1]
         self.assertEqual(written_ds.sizes["params"], 4)
 
     @patch("irrigation_processor.ops.calibrator.LOG")
@@ -227,16 +173,16 @@ class TestCalibrator(unittest.TestCase):
         mock_log,
     ):
         store = Mock()
-        store.list_data_ids.return_value = [CALIBRATED_ID]
-        store.open_data.return_value = make_calibrated_ds()
+        store.exists.return_value = True
+        store.load.return_value = make_calibration_ds()
 
         ctx = DummyContext(store)
-        ctx.check_calibration = True
+        ctx.calibration.check_calibration = True
 
         result = soil_moisture_inversion_calibration(
             ctx,
+            store,
             preprocessed_data=make_preprocessed_ds(),
-            dask_client=None,
         )
 
         self.assertEqual(
@@ -244,7 +190,7 @@ class TestCalibrator(unittest.TestCase):
             {"calibrated_data_id": CALIBRATED_ID},
         )
 
-        store.open_data.assert_called_once_with("calibrated.zarr")
+        store.load.assert_called_with("calibrated.zarr")
 
         self.assertTrue(
             any(

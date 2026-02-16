@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -9,39 +9,8 @@ from irrigation_processor.constants import (IWU_ESTIMATES_SPATIAL_ID,
                                             IWU_ESTIMATES_TEMPORAL_ID)
 from irrigation_processor.ops import irrigation_simulator
 from irrigation_processor.ops.simulator import _resample_sum, _ts_smet4irr
-
-
-def make_preprocessed_ds():
-    time = pd.date_range("2020-01-31", periods=61, freq="D")
-    return xr.Dataset(
-        {
-            "SWI": (("time", "lat", "lon"), np.ones((61, 2, 2)) * 0.3),
-            "pev": (("time", "lat", "lon"), np.ones((61, 2, 2)) * 2.0),
-            "tp": (("time", "lat", "lon"), np.ones((61, 2, 2)) * 1.0),
-        },
-        coords={
-            "time": time,
-            "lat": [6, 5],
-            "lon": [4, 5],
-            "spatial_ref": 0,
-        },
-    )
-
-
-def make_calibration_ds():
-    return xr.Dataset(
-        {
-            "calibration": (
-                ("lat", "lon", "params"),
-                np.ones((2, 2, 4)),
-            )
-        },
-        coords={
-            "lat": [6, 5],
-            "lon": [4, 5],
-            "params": ["a", "b", "z", "RF"],
-        },
-    )
+from tests.helpers import (DummyContext, make_calibration_ds, make_iwu_est_ds,
+                           make_preprocessed_ds)
 
 
 class TestSimulator(unittest.TestCase):
@@ -69,7 +38,6 @@ class TestSimulator(unittest.TestCase):
         self.assertTrue(np.all(result == 0))
 
     def test_threshold_clipping(self):
-        """Test threshold parameter clips maximum values"""
         sm = np.array([0.1, 0.5, 0.9])
         et = np.array([0.01, 0.01, 0.01])
         a, b, z, RF = 50.0, 2.0, 200.0, 1.0
@@ -90,21 +58,22 @@ class TestSimulator(unittest.TestCase):
         # Should be zeros or >= 1.0
         self.assertTrue(np.all((result == 0) | (result >= 1.0)))
 
-    def test_irrigation_simulator_cached(self):
+    @patch("irrigation_processor.ops.simulator.chunk_dataset")
+    def test_irrigation_simulator_cached(self, mock_chunk):
         store = Mock()
-        store.list_data_ids.return_value = [
+        store.exists.return_value = True
+        store.list_ids.return_value = [
             IWU_ESTIMATES_SPATIAL_ID,
             IWU_ESTIMATES_TEMPORAL_ID,
         ]
 
-        ctx = Mock()
-        ctx.store = store
+        ctx = DummyContext()
 
         result = irrigation_simulator(
             ctx,
+            store,
             preprocessed_ds=make_preprocessed_ds(),
             calibrated_path="cal.zarr",
-            dask_client=None,
         )
 
         self.assertEqual(
@@ -116,14 +85,14 @@ class TestSimulator(unittest.TestCase):
         )
 
     def test_resample_sum_weekly(self):
-        time = pd.date_range("2020-01-01", periods=14, freq="D")
+        time = pd.date_range("2024-01-01", periods=14, freq="D")
         da = xr.DataArray(
             np.ones((14, 2, 2)),
             dims=("time", "lat", "lon"),
             coords={
                 "time": time,
-                "lat": [6, 5],
-                "lon": [5, 6],
+                "lat": [44.0, 43.0],
+                "lon": [-5.0, -4.0],
                 "spatial_ref": 0,
             },
         )
@@ -142,31 +111,23 @@ class TestSimulator(unittest.TestCase):
         self,
     ):
         store = Mock()
-        store.list_data_ids.return_value = []
-        store.open_data.side_effect = [
+        store.exists.side_effect = [False, False, True, True] # Check inputs
+        store.list_ids.return_value = []
+        store.load.side_effect = [
             make_calibration_ds(),  # open calibrated_path
-            xr.Dataset(
-                {"iwu_est": (("time", "lat", "lon"), np.ones((10, 2, 2)))},
-                coords={
-                    "time": pd.date_range("2020-01-31", periods=10, freq="2W"),
-                    "lat": [6, 5],
-                    "lon": [4, 5],
-                },
-            ),  # open temporal result
+            make_iwu_est_ds(),      # open temporal result
         ]
 
-        ctx = Mock()
-        ctx.store = store
-        ctx.bbox = [4, 5, 5, 6]
-        ctx.time_range = ["2020-01-31", "2020-03-31"]
+        ctx = DummyContext()
 
-        pre = make_preprocessed_ds()
+        pre = make_preprocessed_ds(time_range=pd.date_range("2024-01-01", periods=61, freq="D"))
+
 
         result = irrigation_simulator(
             ctx,
+            store,
             preprocessed_ds=pre,
             calibrated_path="cal.zarr",
-            dask_client=None,
         )
 
         self.assertEqual(
@@ -179,18 +140,18 @@ class TestSimulator(unittest.TestCase):
 
         temporal_calls = [
             c
-            for c in store.write_data.call_args_list
-            if c[0][1] == IWU_ESTIMATES_TEMPORAL_ID
+            for c in store.save.call_args_list
+            if c[0][0] == IWU_ESTIMATES_TEMPORAL_ID
         ]
         self.assertEqual(len(temporal_calls), 1)
 
-        temporal_ds = temporal_calls[0][0][0]
+        temporal_ds = temporal_calls[0][0][1]
         self.assertIn("iwu_est", temporal_ds)
         self.assertEqual(temporal_ds["iwu_est"].dims, ("time", "lat", "lon"))
 
         spatial_calls = [
             c
-            for c in store.write_data.call_args_list
-            if c[0][1] == IWU_ESTIMATES_SPATIAL_ID
+            for c in store.save.call_args_list
+            if c[0][0] == IWU_ESTIMATES_SPATIAL_ID
         ]
         self.assertEqual(len(spatial_calls), 1)

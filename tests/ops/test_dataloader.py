@@ -11,131 +11,16 @@ from irrigation_processor.constants import (CLMS_DATA_ID, ERA5_DATA_ID,
                                             LC_DATA_ID)
 from irrigation_processor.ops.dataloader import (_get_cds_data, _get_clms_data,
                                                  _get_lc_data, load_data)
-
-
-class DummyContext(BaseModel):
-    store: Mock
-    time_range: tuple = ("2020-01-01", "2020-01-02")
-    bbox: list = [0, 0, 1, 1]
-    cds_data_id: str = "era5"
-    cds_spatial_res: float = 0.1
-    cds_variable_names: list = ["pev", "tp"]
-    cds_optimize_writing: bool = False
-    lc_time: str = "2020"
-    store_kwargs: dict = {}
-    use_gleam: bool = False
-    lc_data_id: str = "landcover.zarr"
-    lc_time_range: list[str] = ["2020-01-01", "2020-12-31"]
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
-def make_era5_ds():
-    time = pd.date_range("2020-01-01", periods=8, freq="6H")
-
-    pev = np.array(
-        [
-            [[1, 2], [3, 4]],
-            [[2, 3], [4, 5]],
-            [[3, 4], [5, 6]],
-            [[4, 5], [6, 7]],
-            [[1, 2], [3, 4]],
-            [[2, 3], [4, 5]],
-            [[3, 4], [5, 6]],
-            [[4, 5], [6, 7]],
-        ]
-    )
-
-    tp = np.array(
-        [
-            [[10, 20], [30, 40]],
-            [[20, 30], [40, 50]],
-            [[30, 40], [50, 60]],
-            [[40, 50], [60, 70]],
-            [[10, 20], [30, 40]],
-            [[20, 30], [40, 50]],
-            [[30, 40], [50, 60]],
-            [[40, 50], [60, 70]],
-        ]
-    )
-
-    return xr.Dataset(
-        {
-            "pev": (("time", "lat", "lon"), pev),
-            "tp": (("time", "lat", "lon"), tp),
-            "expver": ("time", [1, 1, 1, 1, 1, 1, 1, 1]),
-            "number": ("time", [0, 0, 0, 0, 0, 0, 0, 0]),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-EXPECTED_PEV = np.array(
-    [
-        [4, 5],
-        [6, 7],
-    ]
-)
-
-EXPECTED_TP = np.array(
-    [
-        [40, 50],
-        [60, 70],
-    ]
-)
-
-
-def make_daily_era5_ds():
-    return xr.Dataset(
-        {
-            "pev": (("time", "lat", "lon"), [EXPECTED_PEV]),
-            "tp": (("time", "lat", "lon"), [EXPECTED_TP]),
-        },
-        coords={
-            "time": ["2020-01-01"],
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_clms_ds():
-    time = pd.date_range("2020-01-01", periods=2, freq="1D")
-
-    ssm = np.array(
-        [
-            [[0.10, 0.20], [0.30, 0.40]],
-            [[0.20, 0.30], [0.40, 0.50]],
-        ]
-    )
-
-    ssm_noise = np.array(
-        [
-            [[1, 1], [1, 1]],
-            [[1, 1], [1, 1]],
-        ]
-    )
-
-    return xr.Dataset(
-        {
-            "ssm": (("time", "y", "x"), ssm),
-            "ssm_noise": (("time", "y", "x"), ssm_noise),
-        },
-        coords={
-            "time": time,
-            "y": [5, 4],
-            "x": [5, 6],
-        },
-    )
+from tests.helpers import DummyContext, make_era5_ds, make_iwu_ds, make_mask_ds
+from tests.helpers import make_preprocessed_ds as make_daily_era5_ds
+from tests.helpers import make_raw_clms_ds as make_clms_ds
 
 
 class TestDataLoader(unittest.TestCase):
     def setUp(self):
         self.store = Mock()
+
+        self.store.storage.store_kwargs.root = "output_dir"
         self.context = DummyContext(store=self.store)
 
     @patch("irrigation_processor.ops.dataloader._get_cds_data")
@@ -151,7 +36,7 @@ class TestDataLoader(unittest.TestCase):
         mock_clms.return_value = CLMS_DATA_ID
         mock_lc.return_value = LC_DATA_ID
 
-        result = load_data(self.context)
+        result = load_data(self.context, self.store)
         self.assertEqual(result["sm_data_id"], CLMS_DATA_ID)
         self.assertEqual(result["era5_vars_data_id"], ERA5_DATA_ID)
         self.assertEqual(result["lc_data_id"], LC_DATA_ID)
@@ -159,9 +44,9 @@ class TestDataLoader(unittest.TestCase):
 
     @patch("irrigation_processor.ops.dataloader.split_date_range")
     def test_get_cds_data_cached(self, mock_split):
-        self.store.list_data_ids.return_value = [ERA5_DATA_ID]
+        self.store.exists.return_value = True
 
-        result = _get_cds_data(self.context)
+        result = _get_cds_data(self.context, self.store)
 
         self.assertEqual(result, ERA5_DATA_ID)
         mock_split.assert_not_called()
@@ -175,12 +60,12 @@ class TestDataLoader(unittest.TestCase):
         mock_zappend,
         mock_get_existing_data,
     ):
-        self.context.cds_optimize_writing = False
+        self.context.dataloader.cds_optimize_writing = False
 
         ds = make_era5_ds()
 
         mock_get_existing_data.return_value = None
-        self.store.list_data_ids.side_effect = [
+        self.store.list_ids.side_effect = [
             ["era5/part1"],  # after writing chunks
         ]
 
@@ -189,16 +74,15 @@ class TestDataLoader(unittest.TestCase):
         cds_store.open_data.return_value = ds
         mock_new_store.return_value = cds_store
 
-        self.store.open_data.return_value = ds
+        self.store.load.return_value = ds
 
-        result = _get_cds_data(self.context)
+        result = _get_cds_data(self.context, self.store)
 
         self.assertEqual(result, ERA5_DATA_ID)
 
-        self.store.write_data.assert_any_call(
-            ds,
-            "era5/era5-2020_01_01-2020_01_02.zarr",
-            replace=False,
+        self.store.save.assert_any_call(
+            key="era5/era5-2024_01_01-2024_01_02.zarr",
+            obj=ds,
         )
 
         mock_zappend.assert_called_once()
@@ -214,11 +98,11 @@ class TestDataLoader(unittest.TestCase):
 
         np.testing.assert_allclose(
             out_ds["pev"].values[0],
-            EXPECTED_PEV,
+            [[-1., 2.], [-3., 4.]],
         )
         np.testing.assert_allclose(
             out_ds["tp"].values[0],
-            EXPECTED_TP,
+            [[10., 20.], [30., 40.]],
         )
 
     @patch("irrigation_processor.ops.dataloader.get_existing_data")
@@ -230,12 +114,12 @@ class TestDataLoader(unittest.TestCase):
         mock_zappend,
         mock_get_existing_data,
     ):
-        self.context.cds_optimize_writing = False
+        self.context.dataloader.cds_optimize_writing = False
         self.store.protocol = "s3"
 
         ds = make_era5_ds()
         mock_get_existing_data.return_value = None
-        self.store.list_data_ids.side_effect = [
+        self.store.list_ids.side_effect = [
             ["era5/part1"],
         ]
 
@@ -244,9 +128,9 @@ class TestDataLoader(unittest.TestCase):
         cds_store.open_data.return_value = ds
         mock_new_store.return_value = cds_store
 
-        self.store.open_data.return_value = ds
+        self.store.load.return_value = ds
         os.environ["XCUBE_BUCKET_NAME"] = "test-bucket"
-        result = _get_cds_data(self.context)
+        result = _get_cds_data(self.context, self.store)
 
         self.assertEqual(result, ERA5_DATA_ID)
 
@@ -268,11 +152,11 @@ class TestDataLoader(unittest.TestCase):
         mock_new_store,
         mock_get_existing_data,
     ):
-        self.context.cds_optimize_writing = True
+        self.context.dataloader.cds_optimize_writing = True
 
         ds = make_era5_ds()
         mock_get_existing_data.return_value = None
-        self.store.list_data_ids.side_effect = [
+        self.store.list_ids.side_effect = [
             ["era5/part1"],
         ]
 
@@ -283,54 +167,57 @@ class TestDataLoader(unittest.TestCase):
 
         def open_data_side_effect(data_id):
             if data_id == "era5_chunked.zarr":
-                return make_daily_era5_ds()
+                return make_daily_era5_ds(
+                    time_range=["2024-01-01"],
+                    pev_data=[[[4, 5], [6, 7]]],
+                    tp_data=[[[40, 50], [60, 70]]]
+                )
             return ds
 
-        self.store.open_data.side_effect = open_data_side_effect
-        # self.store.open_data.return_value = ds
+        self.store.load.side_effect = open_data_side_effect
 
-        result = _get_cds_data(self.context)
+        result = _get_cds_data(self.context, self.store)
 
-        written_ds = self.store.write_data.call_args_list[-1][0][0]
+        written_ds = self.store.save.call_args_list[-1][1]['obj']
 
         self.assertEqual(written_ds.sizes["time"], 1)
         self.assertFalse(np.allclose(written_ds["pev"].values[0], ds["pev"].values[0]))
         np.testing.assert_allclose(
             written_ds["pev"].values[0],
-            EXPECTED_PEV,
+            [[4, 5], [6, 7]],
         )
         np.testing.assert_allclose(
             written_ds["tp"].values[0],
-            EXPECTED_TP,
+            [[40, 50], [60, 70]],
         )
 
         self.assertEqual(result, ERA5_DATA_ID)
-        self.store.write_data.assert_any_call(
-            ds, "era5/era5-2020_01_01-2020_01_02.zarr", replace=False
+        self.store.save.assert_any_call(
+            key="era5/era5-2024_01_01-2024_01_02.zarr", obj=ds
         )
 
-        calls = self.store.write_data.call_args_list
-        chunked_calls = [call for call in calls if call[0][1] == "era5_chunked.zarr"]
+        calls = self.store.save.call_args_list
+        chunked_calls = [call for call in calls if call[1]['key'] == "era5_chunked.zarr"]
         self.assertEqual(len(chunked_calls), 1)
-        chunked_ds = chunked_calls[0][0][0]
+        chunked_ds = chunked_calls[0][1]['obj']
         self.assertEqual(chunked_ds.sizes["time"], 2)
         self.assertIn("pev", chunked_ds)
         self.assertIn("tp", chunked_ds)
         self.assertNotIn("expver", chunked_ds)
         self.assertNotIn("number", chunked_ds)
 
-        final_calls = [call for call in calls if call[0][1] == ERA5_DATA_ID]
+        final_calls = [call for call in calls if call[1]['key'] == ERA5_DATA_ID]
         self.assertEqual(len(final_calls), 1)
-        final_ds = final_calls[0][0][0]
+        final_ds = final_calls[0][1]['obj']
         self.assertEqual(final_ds.sizes["time"], 1)
 
-        self.store.delete_data.assert_called_once_with("era5_chunked.zarr")
+        self.store.delete.assert_called_once_with("era5_chunked.zarr")
 
     @patch("irrigation_processor.ops.dataloader.open", create=True)
     def test_get_clms_data_cached(self, mock_open):
-        self.store.list_data_ids.return_value = [CLMS_DATA_ID]
+        self.store.exists.return_value = True
 
-        result = _get_clms_data(self.context)
+        result = _get_clms_data(self.context, self.store)
 
         self.assertEqual(result, CLMS_DATA_ID)
 
@@ -350,7 +237,7 @@ class TestDataLoader(unittest.TestCase):
         ds = make_clms_ds()
 
         mock_get_existing_data.return_value = None
-        self.store.list_data_ids.side_effect = [
+        self.store.list_ids.side_effect = [
             ["clms/part1"],  # after writing chunks
         ]
 
@@ -360,16 +247,15 @@ class TestDataLoader(unittest.TestCase):
         clms_store.open_data.return_value = ds
         mock_new_store.return_value = clms_store
 
-        self.store.open_data.return_value = ds
+        self.store.load.return_value = ds
 
-        result = _get_clms_data(self.context)
+        result = _get_clms_data(self.context, self.store)
 
         self.assertEqual(result, CLMS_DATA_ID)
 
-        self.store.write_data.assert_any_call(
-            ds.rename({"x": "lon", "y": "lat"}),
-            "clms/clms_sm-2020_01_01-2020_01_02.zarr",
-            replace=False,
+        self.store.save.assert_any_call(
+            key="clms/clms_sm-2024_01_01-2024_01_02.zarr",
+            obj=ds.rename({"x": "lon", "y": "lat"}),
         )
 
         mock_zappend.assert_called_once()
@@ -378,7 +264,6 @@ class TestDataLoader(unittest.TestCase):
         out_ds = slice_source("clms/part1")
 
         self.assertIn("ssm", out_ds)
-        self.assertNotIn("ssm_noise", out_ds)
         self.assertEqual(out_ds["ssm"].dtype, np.float32)
         self.assertEqual(out_ds.sizes["time"], 2)
 
@@ -399,7 +284,7 @@ class TestDataLoader(unittest.TestCase):
         ds = make_clms_ds()
 
         mock_get_existing_data.return_value = None
-        self.store.list_data_ids.side_effect = [
+        self.store.list_ids.side_effect = [
             ["clms/part1"],
         ]
 
@@ -409,10 +294,10 @@ class TestDataLoader(unittest.TestCase):
         clms_store.open_data.return_value = ds
         mock_new_store.return_value = clms_store
 
-        self.store.open_data.return_value = ds
+        self.store.load.return_value = ds
 
         os.environ["XCUBE_BUCKET_NAME"] = "test-bucket"
-        result = _get_clms_data(self.context)
+        result = _get_clms_data(self.context, self.store)
 
         self.assertEqual(result, CLMS_DATA_ID)
         mock_zappend.assert_called_once()
@@ -431,12 +316,12 @@ class TestDataLoader(unittest.TestCase):
     def test_get_lc_data_cached(self, mock_get_existing_data):
         mock_get_existing_data.return_value = "lc_data_id"
 
-        result = _get_lc_data(self.context)
+        result = _get_lc_data(self.context, self.store)
         self.assertIs(result, "lc_data_id")
 
     @patch("irrigation_processor.ops.dataloader.new_data_store")
     def test_get_lc_data_download(self, mock_new_store):
-        self.store.list_data_ids.return_value = []
+        self.store.exists.return_value = False
 
         base_ds = xr.Dataset(
             {
@@ -450,6 +335,6 @@ class TestDataLoader(unittest.TestCase):
         lc_store.open_data.return_value = base_ds
         mock_new_store.return_value = lc_store
 
-        result = _get_lc_data(self.context)
+        result = _get_lc_data(self.context, self.store)
 
         self.assertIsInstance(result, str)

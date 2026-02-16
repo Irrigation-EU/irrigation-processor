@@ -3,11 +3,11 @@ import os.path
 import time
 
 import xarray as xr
-from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
-from xcube.core.store import DataStore, new_data_store
+from xcube.core.store import new_data_store
 from zappend.api import zappend
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import (
     CLMS_DATA_ID,
     ERA5_DATA_ID,
@@ -15,15 +15,16 @@ from irrigation_processor.constants import (
     LC_DATA_ID,
     LOG,
 )
+from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data, split_date_range
 
 
-def load_data(context: BaseModel) -> dict[str, str | None]:
+def load_data(context: AppConfig, storage: Storage) -> dict[str, str | None]:
     LOG.info("loading data...")
 
-    era5_data_id = _get_cds_data(context)
-    sm_data_id = _get_clms_data(context)
-    lc_data_id = _get_lc_data(context)
+    era5_data_id = _get_cds_data(context, storage)
+    sm_data_id = _get_clms_data(context, storage)
+    lc_data_id = _get_lc_data(context, storage)
 
     results: dict[str, str | None] = {
         "sm_data_id": sm_data_id,
@@ -31,8 +32,8 @@ def load_data(context: BaseModel) -> dict[str, str | None]:
         "era5_vars_data_id": era5_data_id,
     }
 
-    if context.use_gleam:
-        gleam_data_id = _get_gleam_data(context)
+    if context.base.use_gleam:
+        gleam_data_id = _get_gleam_data(context, storage)
         results["gleam_data_id"] = gleam_data_id
     else:
         results["gleam_data_id"] = None
@@ -41,29 +42,26 @@ def load_data(context: BaseModel) -> dict[str, str | None]:
     return results
 
 
-def _get_cds_data(context: BaseModel) -> str:
-    store: DataStore = context.store
-    output_dir: str = context.store_kwargs.get("root")
+def _get_cds_data(context: AppConfig, storage: Storage) -> str:
+    output_dir: str = context.storage.store_kwargs.root
 
-    result = get_existing_data(
-        store=store,
-        data_id=ERA5_DATA_ID,
-    )
+    result = get_existing_data(storage=storage, data_id=ERA5_DATA_ID)
+
     if result is not None:
         assert isinstance(result, str)
         return result
 
-    time_range: list[str] = context.time_range
-    bbox: list[float] = context.bbox
-    spatial_res: float = context.cds_spatial_res
+    time_range: list[str] = context.base.time_range
+    bbox: list[float] = list(context.base.bbox)
+    spatial_res: float = context.dataloader.cds_spatial_res
     bbox[0] = bbox[0] - spatial_res
     bbox[1] = bbox[1] - spatial_res
     bbox[2] = bbox[2] + spatial_res
     bbox[3] = bbox[3] + spatial_res
 
-    data_id: str = context.cds_data_id
-    variables_name: list[str] = context.cds_variable_names
-    if context.use_gleam:
+    data_id: str = context.dataloader.cds_data_id
+    variables_name: list[str] = context.dataloader.cds_variable_names
+    if context.base.use_gleam:
         variables_name = [v for v in variables_name if v != "potential_evaporation"]
 
     LOG.info(f"Variables required from ERA5-Land, {variables_name}")
@@ -77,7 +75,7 @@ def _get_cds_data(context: BaseModel) -> str:
         filename = f"{CDS_SUBDIR}/era5-{_time_range[0].replace('-', '_')}-{_time_range[1].replace('-', '_')}.zarr"
         if (
             get_existing_data(
-                store=store,
+                storage=storage,
                 data_id=filename,
             )
             is not None
@@ -92,19 +90,15 @@ def _get_cds_data(context: BaseModel) -> str:
             time_range=_time_range,
         )
         LOG.info(f"Writing CDS data for time range: {_time_range}")
-        store.write_data(
-            cds_cube,
-            filename,
-            replace=False,
-        )
+        storage.save(key=filename, obj=cds_cube)
 
-    all_data_ids = store.list_data_ids()
+    all_data_ids = storage.list_ids()
     data_ids = sorted(
         [data_id for data_id in all_data_ids if (f"{CDS_SUBDIR}/" in data_id)]
     )
 
     def get_dataset(data_id: str):
-        ds = store.open_data(data_id)
+        ds = storage.load(data_id)
         ds = ds.drop_vars(["expver", "number"])
 
         # taking last() as the variables are accumulated over 24 hours
@@ -119,24 +113,28 @@ def _get_cds_data(context: BaseModel) -> str:
     for data_id in sorted(data_ids):
         datasets.append(get_dataset(data_id))
 
-    if context.cds_optimize_writing:
+    if context.dataloader.cds_optimize_writing:
         LOG.info("Writing CDS data faster...")
         LOG.info("Concatenating CDS data...")
         ds = xr.concat(datasets, dim="time", join="left")
         LOG.info("Chunking CDS data...")
-        ds = chunk_dataset(ds, {"time": 10, "lat": 178, "lon": 306}, format_name="zarr")
+        ds = chunk_dataset(
+            ds, context.dataloader.cds_intermediate_chunks.to_dict(), format_name="zarr"
+        )
         LOG.info("Writing chunked CDS data...")
-        store.write_data(ds, "era5_chunked.zarr", replace=False)
+        storage.save(key="era5_chunked.zarr", obj=ds)
 
-        ds = store.open_data("era5_chunked.zarr")
+        ds = storage.load("era5_chunked.zarr")
         LOG.info("Rechunking CDS data to make it time optimized...")
-        ds = chunk_dataset(ds, {"time": -1, "lat": 50, "lon": 50}, format_name="zarr")
+        ds = chunk_dataset(
+            ds, context.dataloader.cds_final_chunks.to_dict(), format_name="zarr"
+        )
         LOG.info("Writing final CDS data...")
-        store.write_data(ds, ERA5_DATA_ID, replace=False)
+        storage.save(key=ERA5_DATA_ID, obj=ds)
         LOG.info("Deleting chunked CDS data...")
-        store.delete_data("era5_chunked.zarr")
+        storage.delete("era5_chunked.zarr")
     else:
-        if store.protocol == "s3":
+        if storage.protocol == "s3":
             LOG.info("Using S3 storage")
             storage_options = {
                 "anon": False,
@@ -164,14 +162,16 @@ def _get_cds_data(context: BaseModel) -> str:
                 "pev": {
                     "dims": ["time", "lat", "lon"],
                     "encoding": {
-                        "chunks": [total_time_steps, 15, 15],
+                        "chunks": [total_time_steps]
+                        + context.dataloader.cds_zappend_spatial_chunks,
                         "dtype": "float32",
                     },
                 },
                 "tp": {
                     "dims": ["time", "lat", "lon"],
                     "encoding": {
-                        "chunks": [total_time_steps, 15, 15],
+                        "chunks": [total_time_steps]
+                        + context.dataloader.cds_zappend_spatial_chunks,
                         "dtype": "float32",
                     },
                 },
@@ -183,21 +183,21 @@ def _get_cds_data(context: BaseModel) -> str:
     return ERA5_DATA_ID
 
 
-def _get_clms_data(context: BaseModel) -> str:
-    store: DataStore = context.store
-    output_dir: str = context.store_kwargs.get("root")
+def _get_clms_data(context: AppConfig, storage: Storage) -> str:
+    output_dir: str = context.storage.store_kwargs.root
 
     result = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=CLMS_DATA_ID,
     )
+
     if result is not None:
         assert isinstance(result, str)
         return result
 
     LOG.info("Downloading CLMS Soil Moisture dataset...")
 
-    time_range: list[str] = context.time_range
+    time_range: list[str] = context.base.time_range
 
     time_ranges = split_date_range(time_range[0], time_range[1], 5)
 
@@ -216,7 +216,7 @@ def _get_clms_data(context: BaseModel) -> str:
 
         if (
             get_existing_data(
-                store=store,
+                storage=storage,
                 data_id=filename,
             )
             is not None
@@ -232,7 +232,7 @@ def _get_clms_data(context: BaseModel) -> str:
                 clms_data = clms_data.rename({"x": "lon", "y": "lat"})
 
                 LOG.info("Writing data...")
-                store.write_data(clms_data, filename, replace=False)
+                storage.save(key=filename, obj=clms_data)
 
                 LOG.info(f"Done: {_time_range}")
 
@@ -249,21 +249,21 @@ def _get_clms_data(context: BaseModel) -> str:
                 time.sleep(45)
 
     def get_dataset(data_id: str):
-        ds = store.open_data(data_id)
+        ds = storage.load(data_id)
         ds = ds.drop_vars(["ssm_noise"])
         ds["ssm"] = ds["ssm"].astype("float32")
         return ds
 
-    all_data_ids = store.list_data_ids()
+    all_data_ids = storage.list_ids()
     data_ids = sorted(
         [data_id for data_id in all_data_ids if f"{CLMS_SUBDIR}/" in data_id]
     )
     datasets = []
     for data_id in sorted(data_ids):
-        datasets.append(store.open_data(data_id))
+        datasets.append(storage.load(data_id))
     total_time_steps = sum(ds.sizes["time"] for ds in datasets)
 
-    if store.protocol == "s3":
+    if storage.protocol == "s3":
         LOG.info("Using S3 storage")
         storage_options = {
             "anon": False,
@@ -290,7 +290,8 @@ def _get_clms_data(context: BaseModel) -> str:
             "ssm": {
                 "dims": ["time", "lat", "lon"],
                 "encoding": {
-                    "chunks": [total_time_steps, 150, 150],
+                    "chunks": [total_time_steps]
+                    + context.dataloader.clms_zappend_spatial_chunks,
                     "dtype": "float32",
                 },
             },
@@ -302,19 +303,17 @@ def _get_clms_data(context: BaseModel) -> str:
     return CLMS_DATA_ID
 
 
-def _get_lc_data(context: BaseModel) -> str:
-    store: DataStore = context.store
-
-    result = get_existing_data(store=store, data_id=LC_DATA_ID)
+def _get_lc_data(context: AppConfig, storage: Storage) -> str:
+    result = get_existing_data(storage=storage, data_id=LC_DATA_ID)
     if result is not None:
         assert isinstance(result, str)
         return result
 
     LOG.info("Downloading LandCover dataset from CDS...")
 
-    data_id: str = context.lc_data_id
-    time_range: list[str] = context.lc_time_range
-    bbox: list[float] = context.bbox
+    data_id: str = context.dataloader.lc_data_id
+    time_range: list[str] = context.dataloader.lc_time_range
+    bbox: list[float] = context.base.bbox
 
     cds_store = new_data_store("cds", normalize_names=True)
     lc = cds_store.open_data(
@@ -325,16 +324,14 @@ def _get_lc_data(context: BaseModel) -> str:
 
     lc = lc[["crs", "lccs_class"]]
 
-    store.write_data(lc, LC_DATA_ID, replace=False)
+    storage.save(LC_DATA_ID, lc)
 
     return LC_DATA_ID
 
 
-def _get_gleam_data(context: BaseModel) -> str:
-    store: DataStore = context.store
-
+def _get_gleam_data(context: AppConfig, storage: Storage) -> str:
     LOG.info("Loading Gleam dataset from xcube storage...")
-    result = get_existing_data(store=store, data_id=GLEAM_DATA_ID)
+    result = get_existing_data(storage=storage, data_id=GLEAM_DATA_ID)
     assert result is not None, "Gleam dataset must be provided locally in zarr format."
     assert isinstance(result, str)
     return result

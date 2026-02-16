@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
+from typing import Any
 
 import pandas as pd
 import xarray as xr
-from pydantic import BaseModel, ConfigDict, create_model
-from xcube.core.store import DataStore
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import LOG
-from irrigation_processor.core import XcubeDataStoreStorage
-from irrigation_processor.core.pipeline import StepRegistry
+from irrigation_processor.core.storage import Storage
 
 
 def split_date_range(start_date, end_date, num_days=30):
@@ -46,75 +45,27 @@ def convert_m_to_mm(dataarray, update_long_name=True):
     return converted
 
 
-def inject_dynamic_context_from_config(
-    config: dict, registry: StepRegistry, storage: XcubeDataStoreStorage
-):
-    steps = registry.all()
-
-    unknown_steps = (
-        set(config) - {"base", "dask", "storage"} - set([step.name for step in steps])
-    )
-
-    if unknown_steps:
-        raise ValueError(f"Unknown steps in config: {unknown_steps}")
-
-    base_cfg = config.get("base", {})
-    if not isinstance(base_cfg, dict):
-        raise TypeError("'base' config must be a dict")
-
-    dask_cfg = config.get("dask", {})
-    if not isinstance(dask_cfg, dict):
-        raise TypeError("'dask' config must be a dict")
-
-    storage_cfg = config.get("storage", {})
-    if not isinstance(storage_cfg, dict):
-        raise TypeError("'storage' config must be a dict")
-
-    for step_meta in steps:
-        step_name = step_meta.name
-        step_cfg = config.get(step_name, {})
-
-        if not isinstance(step_cfg, dict):
-            raise TypeError(f"Config for step '{step_name}' must be a dict")
-
-        merged_cfg = {
-            **base_cfg,
-            **dask_cfg,
-            **step_cfg,
-            **storage_cfg,
-            "store": storage.store,
-        }
-
-        config_model = create_model(
-            f"{step_name.capitalize()}Config",
-            __config__=ConfigDict(arbitrary_types_allowed=True),
-            **{k: (type(v), v) for k, v in merged_cfg.items()},
-        )
-
-        context_obj = config_model(**merged_cfg)
-        step_meta.context_cls = lambda obj=context_obj: obj
-
-
 def get_existing_data(
     *,
-    store: DataStore,
+    storage: Storage,
     data_id: str,
     load: bool = False,
-) -> str | xr.Dataset | None:
-    if data_id not in store.list_data_ids():
+) -> str | Any | None:
+    if not storage.exists(data_id):
         return None
 
     if load:
-        return store.open_data(data_id)
-    LOG.info(f"Data already exists at {data_id}")
+        return storage.load(data_id)
+
+    LOG.info(f"Data already exists for id {data_id}")
     return data_id
 
 
-def validate_dataset(context: BaseModel, dataset: xr.Dataset) -> None:
+def validate_dataset(context: AppConfig, dataset: xr.Dataset) -> None:
     if not {"lat", "lon", "time"}.issubset(dataset.coords):
         raise ValueError("Dataset must contain 'lat', 'lon', and 'time' coordinates.")
 
-    bbox: list[float] = context.bbox
+    bbox: list[float] = context.base.bbox
     min_lon, min_lat, max_lon, max_lat = bbox
 
     ds_min_lat = float(dataset.lat.min())
@@ -149,8 +100,8 @@ def validate_dataset(context: BaseModel, dataset: xr.Dataset) -> None:
     ds_min_time = dataset.time.min().values
     ds_max_time = dataset.time.max().values
 
-    req_start = pd.to_datetime(context.time_range[0]).to_datetime64()
-    req_end = pd.to_datetime(context.time_range[1]).to_datetime64()
+    req_start = pd.to_datetime(context.base.time_range[0]).to_datetime64()
+    req_end = pd.to_datetime(context.base.time_range[1]).to_datetime64()
 
     if ds_min_time > req_start or ds_max_time < req_end:
         raise ValueError(

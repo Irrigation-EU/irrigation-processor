@@ -1,27 +1,26 @@
 import numpy as np
 import xarray as xr
-from pydantic import BaseModel
 from scipy.optimize import minimize
 from xcube.core.chunk import chunk_dataset
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import CALIBRATED_ID, LOG
+from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def soil_moisture_inversion_calibration(
-    context: BaseModel, preprocessed_data: xr.Dataset, dask_client
+    context: AppConfig, storage: Storage, preprocessed_data: xr.Dataset
 ) -> dict:
-    store = context.store
-
     validate_dataset(context, preprocessed_data)
 
     result = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=CALIBRATED_ID,
     )
     if result is not None:
-        if context.check_calibration:
-            calibrated = store.open_data("calibrated.zarr")
+        if context.calibration.check_calibration:
+            calibrated = storage.load("calibrated.zarr")
             arr_reshaped = calibrated.calibration.values.reshape(-1, 4)
             unique_param_sets = np.unique(arr_reshaped, axis=0)
 
@@ -37,8 +36,8 @@ def soil_moisture_inversion_calibration(
     LOG.info(f"calibrating... {context} {preprocessed_data}")
     tp = preprocessed_data["tp"]
 
-    allowed_months: list[int] = context.allowed_months
-    rainfall_threshold: float = context.rainfall_threshold
+    allowed_months: list[int] = context.calibration.allowed_months
+    rainfall_threshold: float = context.calibration.rainfall_threshold
 
     mask_season = tp["time"].dt.month.isin(allowed_months)
     masked_tp = tp.where(~(mask_season & (tp < rainfall_threshold)))
@@ -68,36 +67,36 @@ def soil_moisture_inversion_calibration(
         subresults.append(result.isel(lat=slice(i, i + step)))
 
     for i, subresult in enumerate(subresults):
-        if store.has_data(f"calibrated_{i}.zarr"):
+        if storage.exists(f"calibrated_{i}.zarr"):
             continue
-        store.write_data(subresult, f"calibrated_{i}.zarr", replace=False)
+        storage.save(f"calibrated_{i}.zarr", subresult)
 
-    data_ids = store.list_data_ids()
+    data_ids = storage.list_ids()
     data_ids_cal = [data_id for data_id in data_ids if "calibrated_" in data_id]
 
     datasets = []
     for data_id in sorted(data_ids_cal):
-        datasets.append(store.open_data(data_id))
+        datasets.append(storage.load(data_id))
 
     ds = xr.concat(datasets, dim="lat", join="left")
     chunked_ds = chunk_dataset(
         ds,
-        chunk_sizes={"params": 4, "lat": 50, "lon": 50},
+        chunk_sizes=context.calibration.calibration_chunks,
         format_name="zarr",
     )
 
     assert chunked_ds.dims["params"] == 4, (
-        "4 params expected, got {chunked_ds.dims['params')]}"
+        f"4 params expected, got {chunked_ds.dims['params']}"
     )
 
-    store.write_data(chunked_ds, CALIBRATED_ID, replace=False)
+    storage.save(CALIBRATED_ID, chunked_ds)
 
     for data_id in data_ids_cal:
-        store.delete_data(data_id)
+        storage.delete(data_id)
     LOG.info(f"calibration complete...{CALIBRATED_ID}")
 
-    if context.check_calibration:
-        calibrated = store.open_data("calibrated.zarr")
+    if context.calibration.check_calibration:
+        calibrated = storage.load("calibrated.zarr")
         arr_reshaped = calibrated.calibration.values.reshape(-1, 4)
         unique_param_sets = np.unique(arr_reshaped, axis=0)
 

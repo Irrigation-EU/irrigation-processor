@@ -69,3 +69,7 @@ typecheck = "PYTHONPATH=./src mypy -p irrigation_processor"
 
 [tool.pixi.environments]
 irrigation-processor-dev = { features = ["default"] }
+
+
+[project.scripts]
+irr-proc = "irrigation_processor.main:app"
