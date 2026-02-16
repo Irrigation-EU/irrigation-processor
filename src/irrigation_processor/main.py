@@ -1,49 +1,99 @@
 import json
+import os
 from pathlib import Path
 
+import typer
 import yaml
 from dotenv import load_dotenv
-
-from irrigation_processor.constants import LOG
-from irrigation_processor.core import LocalService, Pipeline, XcubeDataStoreStorage
-from irrigation_processor.steps import registry
-from irrigation_processor.utils import inject_dynamic_context_from_config
+from typing_extensions import Annotated
 
 load_dotenv()
 
+APP_NAME = "irrigation-processor"
 
-def execute_pipeline(config_file: Path, disable_steps: list[str] | None = None):
-    if disable_steps:
-        for s in disable_steps:
-            registry.disable(s)
+app = typer.Typer(help="Irrigation Water Use (IWU) estimates processor CLI.")
 
-    if not config_file.exists():
-        raise FileNotFoundError(f"Config file not found: {config_file}")
 
-    with open(config_file, "r") as f:
-        config = yaml.safe_load(f)
+@app.command()
+def run(
+    pipeline_name: str = typer.Argument(
+        "irrigation_estimates", help="Name of the pipeline."
+    ),
+    config: Annotated[
+        Path,
+        typer.Option(
+            "--config",
+            "-c",
+            help="Path to the configuration YAML file.",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = Path("config.yml"),
+    visualize: Annotated[
+        bool,
+        typer.Option(
+            "--visualize",
+            "-v",
+            help="Generate and save the pipeline DAG visualization as 'pipeline.png' without running.",
+        ),
+    ] = False,
+):
+    """
+    Execute the irrigation processing pipeline.
+    """
 
-    storage_config = config.get("storage", {})
+    from irrigation_processor.config import AppConfig
+    from irrigation_processor.constants import LOG
+    from irrigation_processor.core import LocalService, Pipeline, XcubeDataStoreStorage
+    from irrigation_processor.steps import registry
+
+    # current workaround for GDAL env in Dask
+    os.environ["AWS_S3_ENDPOINT"] = "eodata.dataspace.copernicus.eu"
+    os.environ["AWS_VIRTUAL_HOSTING"] = "FALSE"
+    os.environ["AWS_ACCESS_KEY_ID"] = os.environ["CDSE_AWS_ACCESS_KEY_ID"]
+    os.environ["AWS_SECRET_ACCESS_KEY"] = os.environ["CDSE_AWS_SECRET_ACCESS_KEY"]
+
+    with open(config, "r") as f:
+        raw_config = yaml.safe_load(f)
+
+    storage_config = raw_config.get("storage", {})
     storage = XcubeDataStoreStorage(**storage_config)
 
-    inject_dynamic_context_from_config(config, registry, storage)
+    app_config = AppConfig(**raw_config)
 
-    service = LocalService(storage=storage)
-    p = Pipeline(service=service, pipeline_name="irrigation_estimates")
+    service = LocalService(storage=storage, app_config=app_config)
+    p = Pipeline(service=service, pipeline_name=pipeline_name)
 
     p.add_steps_from_registry(registry)
 
-    # render dag
-    # dot_str = p.visualize_dot()
-    # src = graphviz.Source(dot_str)
-    # src.render("pipeline", format="png", view=True)
+    if visualize:
+        try:
+            import graphviz
+
+            dot_str = p.visualize_dot()
+            src = graphviz.Source(dot_str)
+            output_path = src.render("pipeline", format="png", cleanup=True)
+            LOG.info(f"Pipeline visualization saved to: {output_path}")
+            return
+        except ImportError:
+            LOG.error(
+                "graphviz library not found. Please install it to use --visualize."
+            )
+            raise typer.Exit(code=1)
 
     state = p.run()
     LOG.info(f"State metadata:\n{json.dumps(state, indent=2)}")
 
 
+@app.command()
+def show_version():
+    from importlib.metadata import version
+
+    typer.echo(version(APP_NAME))
+
+
 if __name__ == "__main__":
-    config_path = Path("config.yml")
-    execute_pipeline(
-        config_file=config_path,
-    )
+    app()

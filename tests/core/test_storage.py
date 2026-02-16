@@ -18,7 +18,7 @@ class TestStorage(unittest.TestCase):
         storage = XcubeDataStoreStorage(store_id="file")
 
         mock_new_store.assert_called_once()
-        self.assertIsNotNone(storage.store)
+        self.assertIsNotNone(storage._store)
 
     @patch("irrigation_processor.core.storage.new_data_store")
     def test_init_custom_store_kwargs(self, mock_new_store):
@@ -30,20 +30,7 @@ class TestStorage(unittest.TestCase):
         )
 
         mock_new_store.assert_called_once_with("s3", a=1)
-        self.assertIsNotNone(storage.store)
-
-    @patch("irrigation_processor.core.storage.new_data_store")
-    def test_save_inline_types(self, mock_new_store):
-        mock_new_store.return_value = Mock()
-
-        storage = XcubeDataStoreStorage()
-
-        for value in [1, 1.5, "x", True]:
-            meta = storage.save("key", value)
-
-            self.assertEqual(meta["inline"], True)
-            self.assertEqual(meta["value"], value)
-            self.assertEqual(meta["type"], type(value).__name__)
+        self.assertIsNotNone(storage._store)
 
     @patch("irrigation_processor.core.storage.new_data_store")
     def test_save_dataset_cached(self, mock_new_store):
@@ -54,12 +41,10 @@ class TestStorage(unittest.TestCase):
         storage = XcubeDataStoreStorage()
         ds = xr.Dataset()
 
-        meta = storage.save("data1", ds)
+        data_id = storage.save("data1", ds)
 
-        self.assertEqual(
-            meta,
-            {"inline": False, "data_id": "data1", "type": "Dataset"},
-        )
+        self.assertEqual(data_id, "data1")
+        # Should not write if already exists
         store.write_data.assert_not_called()
 
     @patch("irrigation_processor.core.storage.new_data_store")
@@ -71,32 +56,20 @@ class TestStorage(unittest.TestCase):
         storage = XcubeDataStoreStorage()
         ds = xr.Dataset()
 
-        meta = storage.save("data2", ds)
+        data_id = storage.save("data2", ds)
 
         store.write_data.assert_called_once_with(ds, "data2", replace=False)
-        self.assertEqual(
-            meta,
-            {"inline": False, "data_id": "data2", "type": "Dataset"},
-        )
+        self.assertEqual(data_id, "data2")
 
     @patch("irrigation_processor.core.storage.new_data_store")
     def test_save_unknown_type_raises(self, mock_new_store):
         mock_new_store.return_value = Mock()
         storage = XcubeDataStoreStorage()
 
-        with self.assertRaises(RuntimeError) as ctx:
+        with self.assertRaises(TypeError) as ctx:
             storage.save("key", object())
 
-        self.assertIn("Unknown storage format", str(ctx.exception))
-
-    @patch("irrigation_processor.core.storage.new_data_store")
-    def test_load_inline_value(self, mock_new_store):
-        mock_new_store.return_value = Mock()
-        storage = XcubeDataStoreStorage()
-
-        value = storage.load({"inline": True, "value": 123})
-
-        self.assertEqual(value, 123)
+        self.assertIn("only supports xr.Dataset", str(ctx.exception))
 
     @patch("irrigation_processor.core.storage.new_data_store")
     def test_load_dataset(self, mock_new_store):
@@ -106,17 +79,36 @@ class TestStorage(unittest.TestCase):
 
         storage = XcubeDataStoreStorage()
 
-        result = storage.load({"inline": False, "data_id": "data1"})
+        result = storage.load("data1")
 
         store.open_data.assert_called_once_with("data1")
         self.assertEqual(result, "DATASET")
 
     @patch("irrigation_processor.core.storage.new_data_store")
-    def test_load_missing_data_id_raises(self, mock_new_store):
-        mock_new_store.return_value = Mock()
+    def test_exists(self, mock_new_store):
+        store = Mock()
+        store.has_data.return_value = True
+        mock_new_store.return_value = store
+
         storage = XcubeDataStoreStorage()
+        self.assertTrue(storage.exists("data1"))
+        store.has_data.assert_called_once_with("data1")
 
-        with self.assertRaises(RuntimeError) as ctx:
-            storage.load({"inline": False})
+    @patch("irrigation_processor.core.storage.new_data_store")
+    def test_list_ids(self, mock_new_store):
+        store = Mock()
+        store.list_data_ids.return_value = ["a", "b"]
+        mock_new_store.return_value = store
 
-        self.assertIn("Invalid data_id", str(ctx.exception))
+        storage = XcubeDataStoreStorage()
+        self.assertEqual(storage.list_ids(), ["a", "b"])
+
+    @patch("irrigation_processor.core.storage.new_data_store")
+    def test_delete(self, mock_new_store):
+        store = Mock()
+        mock_new_store.return_value = store
+
+        storage = XcubeDataStoreStorage()
+        storage.delete("data1")
+        store.delete_data.assert_called_once_with("data1")
+

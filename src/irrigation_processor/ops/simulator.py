@@ -1,29 +1,31 @@
 import numpy as np
 import xarray as xr
-from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import (
     IWU_ESTIMATES_SPATIAL_ID,
     IWU_ESTIMATES_TEMPORAL_ID,
     LOG,
 )
+from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def irrigation_simulator(
-    context: BaseModel, preprocessed_ds: xr.Dataset, calibrated_path: str, dask_client
+    context: AppConfig,
+    storage: Storage,
+    preprocessed_ds: xr.Dataset,
+    calibrated_path: str,
 ) -> dict:
     LOG.info("simulating rainfall...")
 
-    store = context.store
-
     result_spatial = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=IWU_ESTIMATES_SPATIAL_ID,
     )
     result_temporal = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=IWU_ESTIMATES_TEMPORAL_ID,
     )
     if result_spatial is not None and result_temporal is not None:
@@ -32,12 +34,12 @@ def irrigation_simulator(
             "iwu_temporal_estimates": result_temporal,
         }
 
-    calibration = store.open_data(calibrated_path)
+    calibration = storage.load(calibrated_path)
 
     validate_dataset(context, preprocessed_ds)
 
     assert calibration.dims["params"] == 4, (
-        "4 params expected, got {calibration.dims['params')]}"
+        f"4 params expected, got {calibration.dims['params']}"
     )
 
     psim = xr.apply_ufunc(
@@ -71,7 +73,6 @@ def irrigation_simulator(
     IRR = psim2_weekly - tp_weekly
     IRR_clipped = IRR.clip(0, 1000)
     IRR_weekly = IRR_clipped.where(IRR_clipped / tp_weekly >= 0.2, 0)
-    IRR_weekly
 
     IRR_biweekly = _resample_sum(IRR_weekly, step=2)  # 14 days
 
@@ -82,22 +83,23 @@ def irrigation_simulator(
         == 14
     )
 
-    store.write_data(
-        IRR_biweekly.to_dataset(name="iwu_est"),
+    storage.save(
         IWU_ESTIMATES_TEMPORAL_ID,
-        replace=False,
+        IRR_biweekly.to_dataset(name="iwu_est"),
     )
 
-    IRR_biweekly_temporal = store.open_data("iwu_estimates_temporal.zarr")
+    IRR_biweekly_temporal = storage.load("iwu_estimates_temporal.zarr")
     IRR_biweekly_spatial = chunk_dataset(
-        IRR_biweekly_temporal, {"time": 1, "lat": 2072, "lon": 1708}, format_name="zarr"
+        IRR_biweekly_temporal,
+        context.simulation.spatial_chunks.to_dict(),
+        format_name="zarr",
     )
 
     assert np.all(
         IRR_biweekly_temporal.time.diff("time").values.astype("timedelta64[D]") == 14
     )
 
-    store.write_data(IRR_biweekly_spatial, IWU_ESTIMATES_SPATIAL_ID, replace=False)
+    storage.save(IWU_ESTIMATES_SPATIAL_ID, IRR_biweekly_spatial)
 
     LOG.info("simulation complete...")
     return {

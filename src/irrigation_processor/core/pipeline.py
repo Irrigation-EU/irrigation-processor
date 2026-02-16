@@ -35,7 +35,7 @@ class Pipeline:
         return deps
 
     @staticmethod
-    def _toposort(deps: dict[str, set[str]]) -> set[str]:
+    def _toposort(deps: dict[str, set[str]]) -> list[str]:
         # Kahn's algorithm
         incoming = {n: set(srcs) for n, srcs in deps.items()}
         out = []

@@ -8,22 +8,27 @@ import xarray as xr
 from xcube_resampling import resample_in_space
 from xcube_resampling.gridmapping import GridMapping
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
     IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
 )
+from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data
 
 
-def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_client):
-    store = context.store
-
+def postprocessor(
+    context: AppConfig,
+    storage: Storage,
+    iwu_spatial_path: str,
+    iwu_temporal_path: str,
+):
     result_spatial = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
     )
     result_temporal = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
     )
     if result_spatial is not None and result_temporal is not None:
@@ -32,8 +37,8 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
             "iwu_postprocessed_temporal_path": result_temporal,
         }
 
-    iwu_spatial = store.open_data(iwu_spatial_path)
-    iwu_temporal = store.open_data(iwu_temporal_path)
+    iwu_spatial = storage.load(iwu_spatial_path)
+    iwu_temporal = storage.load(iwu_temporal_path)
 
     assert np.all(iwu_spatial.time.diff("time").values.astype("timedelta64[D]") == 14)
     assert np.all(iwu_temporal.time.diff("time").values.astype("timedelta64[D]") == 14)
@@ -48,16 +53,12 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
     assert np.all(
         filtered_spatial.time.diff("time").values.astype("timedelta64[D]") == 14
     )
-    store.write_data(
-        filtered_spatial, IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID, replace=False
-    )
+    storage.save(IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID, filtered_spatial)
 
     assert np.all(
         filtered_temporal.time.diff("time").values.astype("timedelta64[D]") == 14
     )
-    store.write_data(
-        filtered_temporal, IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID, replace=False
-    )
+    storage.save(IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID, filtered_temporal)
 
     return {
         "iwu_postprocessed_spatial_path": IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
@@ -65,9 +66,9 @@ def postprocessor(context, iwu_spatial_path: str, iwu_temporal_path: str, dask_c
     }
 
 
-def _get_spatial_mask(context) -> xr.Dataset:
-    url: str = context.spatial_mask_zip_url
-    spatial_mask_filename: str = context.spatial_mask_filename
+def _get_spatial_mask(context: AppConfig) -> xr.Dataset:
+    url: str = context.postprocessing.spatial_mask_zip_url
+    spatial_mask_filename: str = context.postprocessing.spatial_mask_filename
     r = requests.get(url)
     z = zipfile.ZipFile(io.BytesIO(r.content))
 
@@ -78,11 +79,11 @@ def _get_spatial_mask(context) -> xr.Dataset:
 
 
 def _do_temporal_masking(
-    context,
+    context: AppConfig,
     iwu_spatial: xr.Dataset,
     iwu_temporal: xr.Dataset,
 ):
-    temporal_allowed_months: list[int] = context.temporal_allowed_months
+    temporal_allowed_months: list[int] = context.postprocessing.temporal_allowed_months
     iwu_spatial_masked = iwu_spatial.where(
         iwu_spatial.time.dt.month.isin(temporal_allowed_months), 0
     )
@@ -94,13 +95,13 @@ def _do_temporal_masking(
 
 
 def _do_spatial_masking(
-    context,
+    context: AppConfig,
     iwu_spatial: xr.Dataset,
     iwu_temporal: xr.Dataset,
 ):
-    bbox: list[float] = context.spatial_mask_bbox
+    bbox: list[float] = context.postprocessing.spatial_mask_bbox
     spatial_mask = _get_spatial_mask(context)
-    threshold: int = context.spatial_mask_threshold
+    threshold: int = context.postprocessing.spatial_mask_threshold
     spatial_mask_subset = spatial_mask.sel(
         y=slice(bbox[3], bbox[1]), x=slice(bbox[0], bbox[2])
     )

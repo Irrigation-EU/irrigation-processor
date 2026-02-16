@@ -2,13 +2,7 @@ import unittest
 from unittest.mock import Mock
 
 from irrigation_processor.core import FromStep, Pipeline
-
-
-class DummyStepMeta:
-    def __init__(self, name, depends_on=None, inputs=None):
-        self.name = name
-        self.depends_on = depends_on or []
-        self.inputs = inputs or []
+from tests.helpers import DummyStepMeta
 
 
 class TestPipeline(unittest.TestCase):

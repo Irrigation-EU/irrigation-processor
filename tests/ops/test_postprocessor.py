@@ -11,51 +11,25 @@ from irrigation_processor.constants import (
 from irrigation_processor.ops import postprocessor
 from irrigation_processor.ops.postprocessor import (_do_spatial_masking,
                                                     _do_temporal_masking)
-
-
-def make_iwu_ds():
-    time = pd.date_range("2020-01-01", periods=3, freq="2W")
-    return xr.Dataset(
-        {
-            "iwu_est": (
-                ("time", "lat", "lon"),
-                [[[10, 0], [5, 20]], [[30, 0], [10, 40]], [[0, 0], [0, 50]]],
-            ),
-        },
-        coords={
-            "time": time,
-            "lat": [5, 4],
-            "lon": [5, 6],
-        },
-    )
-
-
-def make_mask_ds():
-    return xr.Dataset(
-        {"band_1": (("y", "x"), [[1.0, 0.0], [1.0, 1.0]])},
-        coords={
-            "y": [5, 4],
-            "x": [5, 6],
-        },
-    )
+from tests.helpers import DummyContext, make_iwu_ds, make_mask_ds
 
 
 class TestPostprocessor(unittest.TestCase):
     def test_postprocessor_cached(self):
         store = Mock()
-        store.list_data_ids.return_value = [
+        store.exists.side_effect = [True, True] # Check both ids
+        store.list_ids.return_value = [
             IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
             IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
         ]
 
-        ctx = Mock()
-        ctx.store = store
+        ctx = DummyContext()
 
         result = postprocessor(
             ctx,
+            store,
             "spatial.zarr",
             "temporal.zarr",
-            dask_client=None,
         )
 
         self.assertEqual(
@@ -70,8 +44,8 @@ class TestPostprocessor(unittest.TestCase):
         spatial = make_iwu_ds()
         temporal = make_iwu_ds()
 
-        ctx = Mock()
-        ctx.temporal_allowed_months = [1]  # January only
+        ctx = DummyContext()
+        ctx.postprocessing.temporal_allowed_months = [1]  # January only
 
         spatial_out, temporal_out = _do_temporal_masking(ctx, spatial, temporal)
         self.assertFalse((temporal_out.isel(time=0)["iwu_est"] == 0).all())
@@ -87,17 +61,14 @@ class TestPostprocessor(unittest.TestCase):
         spatial = make_iwu_ds()
         temporal = make_iwu_ds()
 
-        ctx = Mock()
-        ctx.spatial_mask_bbox = (5, 4, 6, 5)
-        ctx.spatial_mask_threshold = 0.5
+        ctx = DummyContext()
 
         mask_ds = make_mask_ds()
         mock_get_mask.return_value = mask_ds
 
         out_spatial, out_temporal = _do_spatial_masking(ctx, spatial, temporal)
-
-        self.assertTrue(np.isnan(out_spatial["iwu_est"].sel(lat=5, lon=6)).all())
-        self.assertTrue((out_spatial["iwu_est"].sel(lat=4, lon=5).values > 0).any())
+        self.assertTrue(np.isnan(out_spatial["iwu_est"].sel(lat=44, lon=-4)).all())
+        self.assertTrue((out_spatial["iwu_est"].sel(lat=43, lon=-5).values > 0).any())
 
     @patch("irrigation_processor.ops.postprocessor.get_existing_data")
     @patch("irrigation_processor.ops.postprocessor._do_spatial_masking")
@@ -110,15 +81,14 @@ class TestPostprocessor(unittest.TestCase):
     ):
         mock_get_existing_data.side_effect = [None, None]
         store = Mock()
-        store.open_data.side_effect = [
+        store.load.side_effect = [
             make_iwu_ds(),  # spatial
             make_iwu_ds(),  # temporal
         ]
 
-        ctx = Mock()
-        ctx.store = store
-        ctx.bbox = [4, 5, 5, 6]
-        ctx.time_range = ["2020-01-31", "2020-03-31"]
+        ctx = DummyContext()
+        ctx.base.bbox = [-5, 43, -4, 44]
+        ctx.base.time_range = ["2024-01-31", "2024-03-31"]
 
         mock_temporal.return_value = (
             make_iwu_ds(),
@@ -131,21 +101,19 @@ class TestPostprocessor(unittest.TestCase):
 
         result = postprocessor(
             ctx,
+            store,
             "iwu_spatial.zarr",
             "iwu_temporal.zarr",
-            dask_client=None,
         )
 
         # writes happened
-        store.write_data.assert_any_call(
-            unittest.mock.ANY,
+        store.save.assert_any_call(
             IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-            replace=False,
-        )
-        store.write_data.assert_any_call(
             unittest.mock.ANY,
+        )
+        store.save.assert_any_call(
             IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
-            replace=False,
+            unittest.mock.ANY,
         )
 
         self.assertEqual(

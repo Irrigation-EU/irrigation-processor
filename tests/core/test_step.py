@@ -42,31 +42,11 @@ class TestStepRegistry(unittest.TestCase):
 
         self.assertIn("No step named", str(ctx.exception))
 
-    def test_disable_and_enable_step(self):
+    def test_all(self):
         meta = StepMeta(func=dummy_func)
         self.registry.register(meta)
 
-        self.registry.disable(meta.name)
-        self.assertEqual(self.registry.all(), [])
-
-        self.registry.enable(meta.name)
-        self.assertEqual(self.registry.all(), [meta])
-
-    def test_disable_unknown_step_raises(self):
-        with self.assertRaises(KeyError):
-            self.registry.disable("missing")
-
-    def test_enable_unknown_step_raises(self):
-        with self.assertRaises(KeyError):
-            self.registry.enable("missing")
-
-    def test_all_include_disabled(self):
-        meta = StepMeta(func=dummy_func)
-        self.registry.register(meta)
-
-        self.registry.disable(meta.name)
-
-        all_steps = self.registry.all(include_disabled=True)
+        all_steps = self.registry.all()
         self.assertEqual(all_steps, [meta])
 
     def test_step_decorator_without_arguments(self):
@@ -85,7 +65,6 @@ class TestStepRegistry(unittest.TestCase):
             outputs=("b",),
             depends_on=("x",),
             name="custom_name",
-            context_cls=BaseModel,
         )
         def decorated():
             return 2
@@ -96,7 +75,6 @@ class TestStepRegistry(unittest.TestCase):
         self.assertEqual(meta.inputs, ("a",))
         self.assertEqual(meta.outputs, ("b",))
         self.assertEqual(meta.depends_on, ("x",))
-        self.assertEqual(meta.context_cls, BaseModel)
 
     def test_fromstep_to_dict(self):
         fs = FromStep(step="step1", key="out")
@@ -113,7 +91,6 @@ class TestStepRegistry(unittest.TestCase):
             outputs=("y",),
             depends_on=("z",),
             name="my_step",
-            context_cls=BaseModel,
         )
 
         self.assertEqual(meta.func, dummy_func)
@@ -122,7 +99,6 @@ class TestStepRegistry(unittest.TestCase):
         self.assertEqual(meta.inputs, ("x",))
         self.assertEqual(meta.outputs, ("y",))
         self.assertEqual(meta.depends_on, ("z",))
-        self.assertEqual(meta.context_cls, BaseModel)
 
     def test_stepmeta_repr_contains_fields(self):
         meta = StepMeta(func=dummy_func)

@@ -68,24 +68,107 @@ directly to the steps registered in the pipeline.
 ```yaml
 base:
   # shared configuration for all steps
-  time_range:
-    - "2020-01-01"
-    - "2020-12-31"
+  time_range: ["2020-01-01", "2020-12-31"]
+  bbox: [-5.0, 43.0, -4.0, 44.0]
+  use_gleam: false
+
+# Individual step configurations
+dataloader:
+  cds_spatial_res: 0.1
+  cds_variable_names: ["potential_evaporation", "total_precipitation"]
 
 calibration:
-  # step-specific configuration and additions to base config
-  check_calibration: true
+  allowed_months: [4, 5, 6, 7, 8, 9]
   rainfall_threshold: 0.1
+  check_calibration: true
+
+simulation:
+  # Optional: custom spatial chunking
+  spatial_chunks:
+    time: 1
+    lat: 50
+    lon: 50
 
 postprocessing:
   temporal_allowed_months: [4, 5, 6, 7, 8, 9]
   spatial_mask_threshold: 0.5
+
+# Dask parallelization configuration
+dask:
+  dask_kwargs:
+    n_workers: 4
+    threads_per_worker: 1
+    memory_limit: "4GB"
+
+# Storage configuration
+storage:
+  store_id: "s3"
+  store_kwargs: ...
 ```
 
 (keep in mind, the configuration file above is an example)
 
 The `base` section contains shared configuration that is automatically merged 
 into every step.
+
+### Storage
+
+
+You can modify the xcube storage to `s3` if needed. 
+Currently, `file` data storage from xcube is used as default.
+The output directory for this default data store is `output_irrigation`
+
+To use the s3 storage, adjust the `storage` values in the `config.yml`:
+
+```yaml
+storage:
+  store_id: "s3"
+  store_kwargs:
+    root: "<your-bucket-name>"
+    max_depth: 5
+    storage_options:
+        anon: false
+        key: "your-access-key"
+        secret: "your-secret-key"
+        client_kwargs:
+          endpoint_url: "your-endpoint-url"
+```
+
+Make sure you also add the AWS creds to the `.env` file in the root folder.
+
+```.dotenv
+# The following are for you xcube data storage
+XCUBE_AWS_ACCESS_KEY_ID=
+XCUBE_AWS_SECRET_ACCESS_KEY=
+XCUBE_AWS_ENDPOINT_URL=
+XCUBE_BUCKET_NAME=
+# The following are for CDSE S3 access to CLMS data as shown above
+CDSE_AWS_ACCESS_KEY_ID=
+CDSE_AWS_SECRET_ACCESS_KEY=
+CDSE_AWS_ENDPOINT_URL=
+```
+
+### Advanced Configuration: Chunking and Dask
+
+The pipeline supports advanced configuration for performance tuning, specifically for Dask parallelization and Xarray chunking.
+
+#### Parallelization (`dask`)
+
+The `dask` section allows you to configure the local Dask cluster used for processing:
+
+- `n_workers`: Number of worker processes.
+- `threads_per_worker`: Number of threads per worker.
+- `memory_limit`: Memory limit per worker (e.g., "4GB").
+
+#### Chunking
+
+Individual steps support custom chunking for Xarray datasets to optimize memory usage and processing speed. This is typically configured via `*_chunks` keys:
+
+- `dataloader`: `cds_intermediate_chunks`, `cds_final_chunks`.
+- `preprocessing`: `swi_chunks`, `merged_chunks`.
+- `simulation`: `spatial_chunks`.
+- `calibration`: `calibration_chunks`.
+
 
 ### How step configuration is mapped
 
@@ -150,7 +233,7 @@ Example:
     ),
     outputs=("preprocessed_data",),
 )
-def preprocessing(context, sm_data_id, lc_data):
+def preprocessing(context, storage, sm_data_id, lc_data):
     ...
 ```
 
@@ -231,32 +314,16 @@ def calibration(context, preprocessed_data):
 
 The context:
 
-- is a Pydantic model created dynamically
+- is a Pydantic model (`AppConfig`)
 - contains the merged config (base + step config)
-- provides access to the shared data store (context.store) using which one can 
-check what data already exists and write to it.
 
-`dask_client`
+`storage`
 
-Each step can also optionally be run using dask if it has some computations with
-chunked dataset. The function can receive the `dask_client` if they wish to 
-run their step using the local dask cluster to fasten the computations a bit.
+The second argument is the `storage` object, which provides the shared data store. You can use it to check what data already exists and load or save datasets.
 
-To get this `dask_client`, add it as the last argument to your step
+### Parallelization
 
-For example:
-
-```python
-def calibration(context, preprocessed_data, dask_client):
-    ...
-```
-
-Now your step will be parallelized if it can be done by dask. 
-
-If not needed, simply omit it.
-
-To adjust your dask local parameters, you can supply that via `config.yml` using
-the `dask_kwargs` key under the `dask` key.
+The pipeline automatically initializes a local Dask cluster with parameters provided in the `config.yml` under the `dask` key. Pipeline steps using Xarray with Dask will automatically leverage this cluster.
 
 ### Adding your own step
 
@@ -268,7 +335,7 @@ To add a custom step:
     inputs=(FromStep("simulation", "iwu_temporal_estimates"),),
     outputs=("custom_output",),
 )
-def my_custom_step(context, iwu_temporal, dask_client):
+def my_custom_step(context, storage, iwu_temporal):
     # import your custom method and pass the same args as above.
     # your method should return something like this
     # return {"custom_output": iwu_temporal.mean()} 
@@ -311,23 +378,23 @@ This allows the pipeline to be:
 
 ## Run the pipeline
 
-To run the pipeline:
+The easiest way to run the pipeline is using [pixi](https://pixi.sh):
 
 ```bash
-python src/irrigation-processor/main.py
+# Run with default config
+pixi run irr-proc
+
+# Run with custom config
+pixi run irr-proc --config my_config.yml
+
+# Visualize the pipeline DAG
+pixi run irr-proc --visualize
 ```
 
-from the root of this project. 
+Alternatively, run as a Python module:
 
-Or
-
-```python
-from pathlib import Path
-from irrigation_processor.main import execute_pipeline
-
-execute_pipeline(
-    config_file=Path("config.yml")
-)
+```bash
+python -m irrigation_processor.main --config config.yml
 ```
 
 > Note:
@@ -341,39 +408,6 @@ execute_pipeline(
 > store, similarly for S3 store, add it to the bucket with the following name
 > `gleamv4_2b.zarr`
 
-You can modify the xcube storage to `s3` if needed. 
-Currently, `file` data storage from xcube is used as default.
-The output directory for this default data store is `output_irrigation`
-
-To use the s3 storage, adjust the `storage` values in the `config.yml`:
-
-```yaml
-storage:
-  store_id: "s3"
-  store_kwargs:
-    root: "<your-bucket-name>"
-    max_depth: 5
-    storage_options:
-        anon: false
-        key: "your-access-key"
-        secret: "your-secret-key"
-        client_kwargs:
-          endpoint_url: "your-endpoint-url"
-```
-
-Make sure you also add the AWS creds to the `.env` file in the root folder.
-
-```.dotenv
-# The following are for you xcube data storage
-XCUBE_AWS_ACCESS_KEY_ID=
-XCUBE_AWS_SECRET_ACCESS_KEY=
-XCUBE_AWS_ENDPOINT_URL=
-XCUBE_BUCKET_NAME=
-# The following are for CDSE S3 access to CLMS data as shown above
-CDSE_AWS_ACCESS_KEY_ID=
-CDSE_AWS_SECRET_ACCESS_KEY=
-CDSE_AWS_ENDPOINT_URL=
-```
 
 The pipeline will:
 

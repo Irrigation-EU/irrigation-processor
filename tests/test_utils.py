@@ -7,10 +7,10 @@ import pandas as pd
 import xarray as xr
 from pydantic import BaseModel
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.core import XcubeDataStoreStorage
 from irrigation_processor.core.pipeline import StepRegistry
 from irrigation_processor.utils import (convert_m_to_mm, get_existing_data,
-                                        inject_dynamic_context_from_config,
                                         split_date_range, validate_dataset)
 
 
@@ -91,92 +91,7 @@ class TestConvertMToMM(unittest.TestCase):
         self.assertEqual(converted.attrs["long_name"], "Evaporation")
 
 
-class DummyStepMeta:
-    def __init__(self, name):
-        self.name = name
-        self.context_cls = None
 
-
-class TestInjectDynamicContextFromConfig(unittest.TestCase):
-    def setUp(self):
-        self.step1 = DummyStepMeta("step1")
-        self.step2 = DummyStepMeta("step2")
-
-        self.registry = Mock(spec=StepRegistry)
-        self.registry.all.return_value = [self.step1, self.step2]
-
-        self.storage = Mock(spec=XcubeDataStoreStorage)
-        self.storage.store = "STORE_OBJECT"
-
-    def test_successful_context_injection(self):
-        config = {
-            "base": {"a": 1},
-            "step1": {"b": 2},
-            "step2": {"c": 3},
-        }
-
-        inject_dynamic_context_from_config(
-            config=config,
-            registry=self.registry,
-            storage=self.storage,
-        )
-
-        ctx1 = self.step1.context_cls()
-        ctx2 = self.step2.context_cls()
-
-        self.assertEqual(ctx1.a, 1)
-        self.assertEqual(ctx1.b, 2)
-        self.assertEqual(ctx1.store, "STORE_OBJECT")
-
-        self.assertEqual(ctx2.a, 1)
-        self.assertEqual(ctx2.c, 3)
-        self.assertEqual(ctx2.store, "STORE_OBJECT")
-
-    def test_unknown_steps_raise_value_error(self):
-        config = {
-            "base": {},
-            "step1": {},
-            "unknown": {},
-        }
-
-        with self.assertRaises(ValueError) as ctx:
-            inject_dynamic_context_from_config(
-                config=config,
-                registry=self.registry,
-                storage=self.storage,
-            )
-
-        self.assertIn("Unknown steps in config", str(ctx.exception))
-
-    def test_base_config_not_dict_raises_type_error(self):
-        config = {
-            "base": "not-a-dict",
-            "step1": {},
-        }
-
-        with self.assertRaises(TypeError) as ctx:
-            inject_dynamic_context_from_config(
-                config=config,
-                registry=self.registry,
-                storage=self.storage,
-            )
-
-        self.assertIn("'base' config must be a dict", str(ctx.exception))
-
-    def test_step_config_not_dict_raises_type_error(self):
-        config = {
-            "base": {},
-            "step1": "invalid",
-        }
-
-        with self.assertRaises(TypeError) as ctx:
-            inject_dynamic_context_from_config(
-                config=config,
-                registry=self.registry,
-                storage=self.storage,
-            )
-
-        self.assertIn("Config for step 'step1' must be a dict", str(ctx.exception))
 
 
 class TestGetExistingData(unittest.TestCase):
@@ -185,10 +100,10 @@ class TestGetExistingData(unittest.TestCase):
         self.data_id = "test-data"
 
     def test_returns_none_when_data_id_not_in_store(self):
-        self.store.list_data_ids.return_value = []
+        self.store.exists.return_value = False
 
         result = get_existing_data(
-            store=self.store,
+            storage=self.store,
             data_id=self.data_id,
             load=False,
         )
@@ -197,10 +112,10 @@ class TestGetExistingData(unittest.TestCase):
         self.store.open_data.assert_not_called()
 
     def test_returns_data_id_when_exists_and_not_loaded(self):
-        self.store.list_data_ids.return_value = [self.data_id]
+        self.store.exists.return_value = True
 
         result = get_existing_data(
-            store=self.store,
+            storage=self.store,
             data_id=self.data_id,
             load=False,
         )
@@ -210,17 +125,17 @@ class TestGetExistingData(unittest.TestCase):
 
     def test_returns_dataset_when_exists_and_loaded(self):
         ds = xr.Dataset()
-        self.store.list_data_ids.return_value = [self.data_id]
-        self.store.open_data.return_value = ds
+        self.store.exists.return_value = True
+        self.store.load.return_value = ds
 
         result = get_existing_data(
-            store=self.store,
+            storage=self.store,
             data_id=self.data_id,
             load=True,
         )
 
         self.assertIs(result, ds)
-        self.store.open_data.assert_called_once_with(self.data_id)
+        self.store.load.assert_called_once_with(self.data_id)
 
 
 class TestValidateDataset(unittest.TestCase):
@@ -240,9 +155,13 @@ class TestValidateDataset(unittest.TestCase):
             },
         )
 
-        class Context(BaseModel):
-            bbox: list[float] = [-5, 40, 3, 44]  # [min_lon, min_lat, max_lon, max_lat]
+        class BaseConfig(BaseModel):
+            bbox: list[float] = [-5, 40, 3, 44]
             time_range: list[str] = ["2024-01-02", "2024-01-08"]
+            use_gleam: bool = False
+
+        class Context(BaseModel):
+            base: BaseConfig = BaseConfig()
 
         self.context = Context()
 
@@ -281,14 +200,14 @@ class TestValidateDataset(unittest.TestCase):
 
     def test_spatial_subset_empty(self):
         bad_context = self.context
-        bad_context.bbox = [100, 100, 110, 110]
+        bad_context.base.bbox = [100, 100, 110, 110]
 
         with self.assertRaises(ValueError):
             validate_dataset(bad_context, self.dataset)
 
     def test_temporal_subset_empty(self):
         bad_context = self.context
-        bad_context.time_range = ["2030-01-01", "2030-01-10"]
+        bad_context.base.time_range = ["2030-01-01", "2030-01-10"]
 
         with self.assertRaises(ValueError):
             validate_dataset(bad_context, self.dataset)

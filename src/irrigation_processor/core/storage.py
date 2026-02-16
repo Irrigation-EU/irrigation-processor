@@ -9,43 +9,38 @@ from irrigation_processor.constants import LOG
 
 class Storage(abc.ABC):
     @abc.abstractmethod
-    def save(self, key: str, obj: Any) -> dict[str, Any]:
-        """Save object and return metadata (e.g. where it was saved).
-
-        This method must handle 2 cases:
-        1. Python literals - int, float, bool, dict, set, list
-        2. big data - xarray datasets, pandas dataframes etc.
-
-        The format to return must be a dict per key
-
-        inline = True means it is a Python literal
-        {
-                "inline": True,
-                "type": type(obj).__name__
-                "value": obj,
-        }
-
-        inline = False means it is big data
-
-        {
-                "inline": False,
-                "type": type(obj).__name__,
-                "path": "path-to-the-stored-big-data",
-                "format": "<your-format-name>",
-        }
-
-        This dict is not required to be followed strictly but just as a general
-        hint to use as this dict will be completely and only used in your
-        implementation of the Storage subclass.
-
+    def save(self, key: str, obj: Any) -> str:
+        """
+        Persist an object and return its data_id.
         """
 
     @abc.abstractmethod
-    def load(self, metadata: dict[str, Any]) -> Any:
-        """Load an object previously saved using the metadata returned by save.
+    def load(self, data_id: str) -> Any:
+        """
+        Retrieve an object by its data_id.
+        """
 
-        This method must handle the loading of the 3 cases as discussed in
-        save() method.
+    @abc.abstractmethod
+    def exists(self, data_id: str) -> bool:
+        """Return True if the object exists."""
+
+    @abc.abstractmethod
+    def list_ids(self) -> list[str]:
+        """
+        Return all stored data identifiers known to this backend.
+        """
+
+    @abc.abstractmethod
+    def delete(self, data_id: str) -> None:
+        """
+        Delete the stored object referenced by data_id.
+        """
+
+    @property
+    @abc.abstractmethod
+    def protocol(self) -> str:
+        """
+        Return the storage protocol (e.g., 'file', 's3').
         """
 
 
@@ -55,38 +50,42 @@ class XcubeDataStoreStorage(Storage):
             store_kwargs = {}
         if store_id == "file" and "root" not in store_kwargs:
             store_kwargs.update({"root": "output_irrigation", "max_depth": 5})
-        self.store = new_data_store(store_id, **store_kwargs)
+        self._store_id = store_id
+        self._store = new_data_store(store_id, **store_kwargs)
 
-    def save(self, key: str, obj: Any) -> dict[str, Any]:
-        if isinstance(obj, (int, float, str, bool)):
-            return {"inline": True, "value": obj, "type": type(obj).__name__}
+    def save(self, key: str, obj: Any) -> str:
+        if not isinstance(obj, xr.Dataset):
+            raise TypeError(
+                f"XcubeDataStoreStorage only supports xr.Dataset, got {type(obj)}"
+            )
 
-        if obj is None:
-            return {"inline": True, "value": None, "type": type(obj).__name__}
+        data_id = key
+        data_ids = self._store.list_data_ids()
 
-        if isinstance(obj, xr.Dataset):
-            data_id = key
-            data_ids = self.store.list_data_ids()
-
-            if data_id in data_ids:
-                LOG.info(
-                    f"Data id {data_id} already exists in the xcube data store. Using cached data."
-                )
-                return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
+        if data_id not in data_ids:
             LOG.info(
                 f"Data id {data_id} does not exist in the xcube data store. Writing to it."
             )
-            self.store.write_data(obj, data_id, replace=False)
-            return {"inline": False, "data_id": data_id, "type": type(obj).__name__}
+            self._store.write_data(obj, data_id, replace=False)
+        else:
+            LOG.info(
+                f"Data id {data_id} already exists in the xcube data store. Using cached data."
+            )
 
-        raise RuntimeError(f"Unknown storage format: {type(obj)}")
+        return data_id
 
-    def load(self, metadata: dict[str, Any]) -> Any:
-        if metadata.get("inline"):
-            return metadata["value"]
+    def load(self, data_id: str) -> Any:
+        return self._store.open_data(data_id)
 
-        data_id = metadata.get("data_id")
-        if not data_id:
-            raise RuntimeError(f"Invalid data_id: {data_id}")
+    def exists(self, data_id: str) -> bool:
+        return self._store.has_data(data_id)
 
-        return self.store.open_data(data_id)
+    def list_ids(self) -> list[str]:
+        return list(self._store.list_data_ids())
+
+    def delete(self, data_id: str) -> None:
+        self._store.delete_data(data_id)
+
+    @property
+    def protocol(self) -> str:
+        return self._store.protocol

@@ -1,10 +1,10 @@
 import inspect
 import unittest
 
-from pydantic import BaseModel
-
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import INPUT_FOR_CALIBRATION_ID
 from irrigation_processor.core.pipeline import FromStep
+from irrigation_processor.core.storage import Storage
 from irrigation_processor.steps import registry
 
 
@@ -15,7 +15,7 @@ class TestPipelineDefinition(unittest.TestCase):
     """
 
     def test_all_steps_registered(self):
-        steps = registry.all(include_disabled=True)
+        steps = registry.all()
         names = {step.name for step in steps}
 
         self.assertEqual(
@@ -38,7 +38,6 @@ class TestPipelineDefinition(unittest.TestCase):
             ("sm_data_id", "lc_data_id", "era5_vars_data_id", "gleam_data_id"),
         )
         self.assertEqual(meta.inputs, ())
-        self.assertIsNone(meta.context_cls)
 
     def test_preprocessing_step_metadata(self):
         meta = registry.get("preprocessing")
@@ -84,7 +83,7 @@ class TestPipelineDefinition(unittest.TestCase):
     def test_postprocessing_step_metadata(self):
         meta = registry.get("postprocessing")
 
-        self.assertEqual(meta.outputs, ())
+        self.assertEqual(meta.outputs, ("iwu_postprocessed_spatial_path", "iwu_postprocessed_temporal_path"))
         self.assertEqual(
             meta.inputs,
             (
@@ -97,7 +96,7 @@ class TestPipelineDefinition(unittest.TestCase):
         """
         Ensures step functions are compatible with LocalService expectations:
         - context first
-        - dask_client as last arg
+        - storage second
         """
         dataloader = registry.get("dataloader").func
         preprocessing = registry.get("preprocessing").func
@@ -108,14 +107,20 @@ class TestPipelineDefinition(unittest.TestCase):
         sig = inspect.signature(dataloader)
         params = list(sig.parameters.values())
 
-        self.assertGreater(len(params), 0)
+        self.assertGreater(len(params), 1)
         self.assertEqual(params[0].name, "context")
-        self.assertEqual(params[0].annotation, BaseModel)
+        self.assertEqual(params[0].annotation, AppConfig)
+        self.assertEqual(params[1].name, "storage")
+        self.assertEqual(params[1].annotation, Storage)
 
         sig = inspect.signature(preprocessing)
         params = list(sig.parameters.values())
 
-        self.assertGreater(len(params), 1)
+        self.assertGreater(len(params), 2)
+        self.assertEqual(params[0].name, "context")
+        self.assertEqual(params[0].annotation, AppConfig)
+        self.assertEqual(params[1].name, "storage")
+        self.assertEqual(params[1].annotation, Storage)
         self.assertIn("lc_data_id", sig.parameters)
 
         for step in (calibration, simulation, postprocessing):
@@ -123,7 +128,7 @@ class TestPipelineDefinition(unittest.TestCase):
             params = list(sig.parameters.values())
             param_names = [p.name for p in params]
 
-            self.assertIn("dask_client", param_names)
-
-            self.assertEqual(param_names[-1], "dask_client")
             self.assertEqual(param_names[0], "context")
+            self.assertEqual(params[0].annotation, AppConfig)
+            self.assertEqual(param_names[1], "storage")
+            self.assertEqual(params[1].annotation, Storage)

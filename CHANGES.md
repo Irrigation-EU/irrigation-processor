@@ -11,4 +11,9 @@
   - calibration
   - simulation
   - postprocessing
-- Add tests and initial documentation
+- Added configurable chunk sizes for all pipeline steps via `config.yml`
+- Standardized the test suite using centralized helpers.
+- Integrated `typer` for running the processor with CLI.
+- Improved Pydantic configuration models for better type safety and validation
+- Integrated `pixi` for standardized environment management
+- Added initial documentation

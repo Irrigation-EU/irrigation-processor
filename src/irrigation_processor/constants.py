@@ -24,4 +24,4 @@ IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID = "iwu_postprocessed_spatial.zarr"
 IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID = "iwu_postprocessed_temporal.zarr"
 
 # Pipeline results
-PIPELINE_RESULTS_CACHE_DIR = ".pipeline_results_cache"
+PIPELINE_RESULTS_DIR = ".pipeline_results"

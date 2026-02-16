@@ -1,17 +1,17 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pydantic import BaseModel
 from xcube.core.chunk import chunk_dataset
-from xcube.core.store import DataStore
 from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
+from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import (
     INPUT_FOR_CALIBRATION_ID,
     LOG,
     PROCESSED_CLMS_DATA_ID,
 )
+from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import (
     convert_m_to_mm,
     get_existing_data,
@@ -20,17 +20,15 @@ from irrigation_processor.utils import (
 
 
 def irrigation_preprocessor(
-    context: BaseModel,
+    context: AppConfig,
+    storage: Storage,
     sm_data_id: str,
     lc_data_id: str,
     era5_vars_data_id: str,
     gleam_data_id: str | None,
-    dask_client,
 ) -> xr.Dataset:
-    store: DataStore = context.store
-
     result = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=INPUT_FOR_CALIBRATION_ID,
         load=True,
     )
@@ -39,24 +37,28 @@ def irrigation_preprocessor(
         validate_dataset(context, result)
         return result
 
-    preprocessed_sm = _soil_moisture_preprocessor(context, sm_data_id)
-    preprocessed_lc = _land_cover_preprocessor(context, lc_data_id)
-    preprocessed_era5 = _era5_preprocessor(context, era5_vars_data_id)
-    preprocessed_gleam = _gleam_preprocessor(context, gleam_data_id)
+    preprocessed_sm = _soil_moisture_preprocessor(context, storage, sm_data_id)
+    preprocessed_lc = _land_cover_preprocessor(context, storage, lc_data_id)
+    preprocessed_era5 = _era5_preprocessor(context, storage, era5_vars_data_id)
+    preprocessed_gleam = _gleam_preprocessor(context, storage, gleam_data_id)
 
     merged_ds = _resample_and_merge(
-        preprocessed_sm, preprocessed_lc, preprocessed_era5, preprocessed_gleam
+        preprocessed_sm,
+        preprocessed_lc,
+        preprocessed_era5,
+        preprocessed_gleam,
+        chunk_sizes=context.preprocessing.merged_chunks.to_dict(),
     )
 
     LOG.info("preprocessing complete...")
     return merged_ds
 
 
-def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Dataset:
-    store: DataStore = context.store
-
+def _soil_moisture_preprocessor(
+    context: AppConfig, storage: Storage, sm_data_id: str
+) -> xr.Dataset:
     result = get_existing_data(
-        store=store,
+        storage=storage,
         data_id=PROCESSED_CLMS_DATA_ID,
         load=True,
     )
@@ -64,9 +66,9 @@ def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Datas
         assert isinstance(result, xr.Dataset)
         return result
 
-    clms_data = store.open_data(sm_data_id)
+    clms_data = storage.load(sm_data_id)
     validate_dataset(context, clms_data)
-    bbox: list[float] = context.bbox
+    bbox: list[float] = context.base.bbox
 
     # Interpolation
     full_time = pd.date_range(
@@ -105,7 +107,7 @@ def _soil_moisture_preprocessor(context: BaseModel, sm_data_id: str) -> xr.Datas
 
     SWI = SWI.transpose("time", "lat", "lon")
 
-    SWI = chunk_dataset(SWI, chunk_sizes={"time": -1, "lat": 128, "lon": 128})
+    SWI = chunk_dataset(SWI, chunk_sizes=context.preprocessing.swi_chunks.to_dict())
 
     LOG.info("preprocessed soil moisture...")
 
@@ -133,11 +135,12 @@ def _swicomp_nan(in_data, in_jd, ctime=2):
     return filtered
 
 
-def _land_cover_preprocessor(context: BaseModel, lc_data_id: str) -> xr.DataArray:
-    store: DataStore = context.store
-    lc_cube = store.open_data(lc_data_id)
+def _land_cover_preprocessor(
+    context: AppConfig, storage: Storage, lc_data_id: str
+) -> xr.DataArray:
+    lc_cube = storage.load(lc_data_id)
 
-    keep_classes = context.lc_keep_classes
+    keep_classes = context.preprocessing.lc_keep_classes
 
     lc_binary = lc_cube.lccs_class.isin(keep_classes).astype("uint8")
 
@@ -145,9 +148,10 @@ def _land_cover_preprocessor(context: BaseModel, lc_data_id: str) -> xr.DataArra
     return lc_binary
 
 
-def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> xr.Dataset:
-    store: DataStore = context.store
-    cds_cube = store.open_data(cds_data_id)
+def _era5_preprocessor(
+    context: AppConfig, storage: Storage, cds_data_id: str
+) -> xr.Dataset:
+    cds_cube = storage.load(cds_data_id)
     validate_dataset(context, cds_cube)
 
     cds_cube["pev"] = cds_cube["pev"] * -1
@@ -158,13 +162,14 @@ def _era5_preprocessor(context: BaseModel, cds_data_id: str) -> xr.Dataset:
     return cds_cube
 
 
-def _gleam_preprocessor(context: BaseModel, gleam_data_id: str) -> xr.Dataset | None:
+def _gleam_preprocessor(
+    context: AppConfig, storage: Storage, gleam_data_id: str
+) -> xr.Dataset | None:
     if gleam_data_id is None:
         return None
 
-    store: DataStore = context.store
-    gleam_cube = store.open_data(gleam_data_id)
-    bbox: list[float] = context.bbox
+    gleam_cube = storage.load(gleam_data_id)
+    bbox: list[float] = context.base.bbox
 
     return gleam_cube.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
 
@@ -174,6 +179,7 @@ def _resample_and_merge(
     lc: xr.DataArray,
     era5: xr.Dataset,
     preprocessed_gleam: xr.Dataset | None = None,
+    chunk_sizes: dict[str, int] | None = None,
 ) -> xr.Dataset:
     LOG.info("resampling...")
     gm_sm = GridMapping.from_dataset(soil_moisture)
@@ -206,7 +212,7 @@ def _resample_and_merge(
 
     chunked_ds = chunk_dataset(
         ds_combined,
-        chunk_sizes={"time": -1, "lat": 50, "lon": 50},
+        chunk_sizes=chunk_sizes or {"time": -1, "lat": 50, "lon": 50},
         format_name="zarr",
     )
 
