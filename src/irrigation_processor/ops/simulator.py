@@ -38,8 +38,8 @@ def irrigation_simulator(
 
     validate_dataset(context, preprocessed_ds)
 
-    assert calibration.dims["params"] == 4, (
-        f"4 params expected, got {calibration.dims['params']}"
+    assert calibration.sizes["params"] == 4, (
+        f"4 params expected, got {calibration.sizes['params']}"
     )
 
     psim = xr.apply_ufunc(
