@@ -5,17 +5,29 @@ from .step import FromStep, StepMeta, StepRegistry
 
 
 class Pipeline:
+    """
+    Represents a collection of dependent steps that are executed
+    in the correct order using a provided service.
+    """
+
     def __init__(self, service: LocalService, pipeline_name: str):
         self.steps: dict[str, StepMeta] = {}
         self.service = service
         self.pipeline_name = pipeline_name
 
     def add(self, step_meta: StepMeta):
+        """
+        Add a step to the pipeline.
+
+        Raises:
+            KeyError: If a step with the same name already exists.
+        """
         if step_meta.name in self.steps:
             raise KeyError(f"step {step_meta.name} already added")
         self.steps[step_meta.name] = step_meta
 
     def add_steps_from_registry(self, registry: StepRegistry):
+        """Add all steps from a registry to this pipeline."""
         for meta in registry.all():
             self.add(meta)
 
@@ -58,6 +70,10 @@ class Pipeline:
         return out
 
     def visualize_dot(self) -> str:
+        """
+        Return a Graphviz DOT representation of the pipeline dependency
+        graph.
+        """
         deps = self._build_graph()
         lines = ["digraph pipeline {", "rankdir=LR;"]
         for node in deps:
@@ -69,6 +85,12 @@ class Pipeline:
         return "\n".join(lines)
 
     def run(self):
+        """
+        Execute the pipeline in dependency order.
+
+        Returns:
+            The result produced by the execution service.
+        """
         if not self.steps:
             LOG.error("Please add steps to the pipeline first.")
             return None
