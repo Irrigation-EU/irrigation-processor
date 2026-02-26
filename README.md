@@ -541,6 +541,5 @@ Common causes:
 
 - temporal masking excluded those months
 - spatial mask threshold removed the area
-- irrigation did not occur
-
-Inspect postprocessing configuration.
+- irrigation did not occur -
+- inspect postprocessing configuration.
