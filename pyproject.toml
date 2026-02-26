@@ -10,7 +10,6 @@ description = "Processor for generating Irrigation Water Use (IWU) estimates dat
 version = "0.1.0"
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -22,7 +21,7 @@ classifiers = [
   "Operating System :: Unix",
   "Operating System :: MacOS",
 ]
-requires-python = ">=3.10"
+requires-python = ">3.10"
 
 [build-system]
 build-backend = "hatchling.build"
@@ -35,13 +34,7 @@ platforms = ["linux-64"]
 [tool.pixi.pypi-dependencies]
 irrigation_processor = { path = ".", editable = true }
 
-[tool.pixi.tasks]
-
 [tool.pixi.dependencies]
-ruff = ">=0.12.2,<0.13"
-isort = ">=6.0.1,<7"
-pytest = ">=8.4.1,<9"
-pytest-cov = ">=6.2.1,<7"
 jupyter = ">=1.1.1,<2"
 xcube = ">=1.11.1,<2"
 cartopy = ">=0.24.0,<0.25"
@@ -50,4 +43,33 @@ xcube-cds = ">=1.1.0,<2"
 h5netcdf = ">=1.6.3,<2"
 xcube-clms = ">=1.1.0,<2"
 xcube-cci = ">=0.11.9,<0.12"
-xcube-resampling = ">=0.1.0,<0.2"
+xcube-resampling = ">=0.1.0,<1.0"
+hvplot = ">=0.12.1,<0.13"
+xarray = ">=2025.9.0,<2026"
+pydantic = ">=2.11.9,<3"
+python-dotenv = ">=1.2.1,<2"
+libgdal-netcdf = ">=3.12.1,<4"
+graphviz = ">=14.1.0,<15"
+python-graphviz = ">=0.21,<0.22"
+boto3 = "==1.37.3"
+# Dev tools
+ruff = ">=0.12.2,<0.13"
+isort = ">=6.0.1,<7"
+pytest = ">=8.4.1,<9"
+pytest-cov = ">=6.2.1,<7"
+mypy = "*"
+typer = ">=0.19.2,<0.20"
+pixi-pycharm = ">=0.0.10,<0.0.11"
+
+
+[tool.pixi.tasks]
+test = "pytest tests"
+format = "isort src/irrigation_processor && ruff format src/irrigation_processor && ruff check src/irrigation_processor --fix"
+typecheck = "PYTHONPATH=./src mypy -p irrigation_processor"
+
+[tool.pixi.environments]
+irrigation-processor-dev = { features = ["default"] }
+
+
+[project.scripts]
+irr-proc = "irrigation_processor.main:app"

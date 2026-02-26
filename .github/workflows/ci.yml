@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.11", "3.12", "3.13" ]
+
+    steps:
+      - name: checkout xcube-clms
+        uses: actions/checkout@v4
+
+      - name: Install Pixi
+        run: curl -fsSL https://pixi.sh/install.sh | bash
+        shell: bash
+
+      - name: Add Pixi to PATH
+        run: echo "$HOME/.pixi/bin" >> $GITHUB_PATH
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: pixi add python=${{ matrix.python-version }} --no-install
+
+      - name: Install environment
+        run: pixi install
+
+      - name: Ruff check src
+        run: pixi run ruff check src/
+
+      - name: Ruff check tests
+        run: pixi run ruff check tests/
+
+      - name: Run tests
+        run: pixi run pytest --cov=irrigation_processor --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
