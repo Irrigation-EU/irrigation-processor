@@ -1,0 +1,55 @@
+base:
+  time_range: ["2020-01-01", "2020-02-20"]
+  bbox: [-5, 40, 4, 45]
+  use_gleam: false # if we want to the `potential_evaporation` from gleam dataset or not
+
+dataloader:
+  lc_data_id: "satellite-land-cover"
+  lc_time_range: ["2020-01-01", "2020-12-31"]
+
+  cds_data_id: "reanalysis-era5-land"
+  cds_spatial_res: 0.1
+  cds_variable_names: [
+    "potential_evaporation",
+    "total_precipitation",
+  ]
+  cds_optimize_writing: false
+
+preprocessing:
+  lc_keep_classes:  [
+        10,
+        11,
+        12,
+        20,
+        30,
+    ]  # These are classes in LandCover related to Croplands
+
+calibration:
+  allowed_months: [5, 6, 7, 8, 9]
+  rainfall_threshold: 1.0
+  check_calibration: true
+
+postprocessing:
+  temporal_allowed_months: [5, 6, 7, 8, 9]
+  spatial_mask_zip_url: "https://storage.googleapis.com/fao-maps-catalog-data/geonetwork/aquamaps/gmia_v5_aei_pct_asc.zip"
+  spatial_mask_filename: "gmia_v5_aei_pct.asc"
+  spatial_mask_bbox: [-12, 34, 51, 73]
+  spatial_mask_threshold: 5
+
+storage:
+  store_id: "s3"
+  store_kwargs:
+    root: "irrigation-ouptuts"
+    max_depth: 5
+    storage_options:
+        anon: false
+        key: "minioadmin"
+        secret: "minioadmin"
+        client_kwargs:
+          endpoint_url: "http://127.0.0.1:9000"
+
+dask:
+  dask_kwargs:
+    n_workers: 4
+    threads_per_worker: 1
+    memory_limit: "4GB"

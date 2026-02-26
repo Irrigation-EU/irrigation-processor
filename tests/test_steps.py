@@ -1,0 +1,134 @@
+import inspect
+import unittest
+
+from irrigation_processor.config import AppConfig
+from irrigation_processor.constants import INPUT_FOR_CALIBRATION_ID
+from irrigation_processor.core.pipeline import FromStep
+from irrigation_processor.core.storage import Storage
+from irrigation_processor.steps import registry
+
+
+class TestPipelineDefinition(unittest.TestCase):
+    """
+    We explicitly DO NOT execute the steps.
+    These tests verify declarative correctness only.
+    """
+
+    def test_all_steps_registered(self):
+        steps = registry.all()
+        names = {step.name for step in steps}
+
+        self.assertEqual(
+            names,
+            {
+                "dataloader",
+                "preprocessing",
+                "calibration",
+                "simulation",
+                "postprocessing",
+            },
+        )
+
+    def test_dataloader_step_metadata(self):
+        meta = registry.get("dataloader")
+
+        self.assertEqual(meta.name, "dataloader")
+        self.assertEqual(
+            meta.outputs,
+            ("sm_data_id", "lc_data_id", "era5_vars_data_id", "gleam_data_id"),
+        )
+        self.assertEqual(meta.inputs, ())
+
+    def test_preprocessing_step_metadata(self):
+        meta = registry.get("preprocessing")
+
+        self.assertEqual(meta.outputs, (INPUT_FOR_CALIBRATION_ID,))
+        self.assertEqual(
+            meta.inputs,
+            (
+                FromStep("dataloader", "sm_data_id"),
+                FromStep("dataloader", "lc_data_id"),
+                FromStep("dataloader", "era5_vars_data_id"),
+                FromStep("dataloader", "gleam_data_id"),
+            ),
+        )
+
+    def test_calibration_step_metadata(self):
+        meta = registry.get("calibration")
+
+        self.assertEqual(meta.outputs, ("calibrated_data_id",))
+        self.assertEqual(
+            meta.inputs,
+            (FromStep("preprocessing", INPUT_FOR_CALIBRATION_ID),),
+        )
+
+    def test_simulation_step_metadata(self):
+        meta = registry.get("simulation")
+
+        self.assertEqual(
+            meta.outputs,
+            (
+                "iwu_spatial_estimates",
+                "iwu_temporal_estimates",
+            ),
+        )
+        self.assertEqual(
+            meta.inputs,
+            (
+                FromStep("preprocessing", INPUT_FOR_CALIBRATION_ID),
+                FromStep("calibration", "calibrated_data_id"),
+            ),
+        )
+
+    def test_postprocessing_step_metadata(self):
+        meta = registry.get("postprocessing")
+
+        self.assertEqual(meta.outputs, ("iwu_postprocessed_spatial_path", "iwu_postprocessed_temporal_path"))
+        self.assertEqual(
+            meta.inputs,
+            (
+                FromStep("simulation", "iwu_spatial_estimates"),
+                FromStep("simulation", "iwu_temporal_estimates"),
+            ),
+        )
+
+    def test_step_function_signatures(self):
+        """
+        Ensures step functions are compatible with LocalService expectations:
+        - context first
+        - storage second
+        """
+        dataloader = registry.get("dataloader").func
+        preprocessing = registry.get("preprocessing").func
+        calibration = registry.get("calibration").func
+        simulation = registry.get("simulation").func
+        postprocessing = registry.get("postprocessing").func
+
+        sig = inspect.signature(dataloader)
+        params = list(sig.parameters.values())
+
+        self.assertGreater(len(params), 1)
+        self.assertEqual(params[0].name, "context")
+        self.assertEqual(params[0].annotation, AppConfig)
+        self.assertEqual(params[1].name, "storage")
+        self.assertEqual(params[1].annotation, Storage)
+
+        sig = inspect.signature(preprocessing)
+        params = list(sig.parameters.values())
+
+        self.assertGreater(len(params), 2)
+        self.assertEqual(params[0].name, "context")
+        self.assertEqual(params[0].annotation, AppConfig)
+        self.assertEqual(params[1].name, "storage")
+        self.assertEqual(params[1].annotation, Storage)
+        self.assertIn("lc_data_id", sig.parameters)
+
+        for step in (calibration, simulation, postprocessing):
+            sig = inspect.signature(step)
+            params = list(sig.parameters.values())
+            param_names = [p.name for p in params]
+
+            self.assertEqual(param_names[0], "context")
+            self.assertEqual(params[0].annotation, AppConfig)
+            self.assertEqual(param_names[1], "storage")
+            self.assertEqual(params[1].annotation, Storage)
