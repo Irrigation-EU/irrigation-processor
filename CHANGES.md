@@ -1,4 +1,7 @@
-# Changes in version 0.1.0 (in development)
+# Changes in version 0.1.1 (in development)
+
+
+# Changes in version 0.1.0
 
 - Implemented `Pipeline` framework that allows the user to 
   - create pipelines easily using steps
