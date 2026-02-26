@@ -12,6 +12,12 @@ from irrigation_processor.core.storage import Storage
 
 
 class LocalService:
+    """
+    Runs all steps of a pipeline on your local machine.
+
+    It executes each step in order, passes outputs between steps,
+    and automatically saves results using the configured storage.
+    """
     def __init__(self, storage: Storage, app_config: AppConfig):
         self.storage = storage
         self.app_config = app_config
@@ -27,7 +33,21 @@ class LocalService:
         order: list[str],
         steps: dict[str, StepMeta],
     ):
-        """Execute steps in given order. Returns state with outputs."""
+        """
+        Execute steps in given order, stores the intermediate results via
+        storage if applicable, and returns a dictionary containing the stored
+        outputs for each step.
+
+        Args:
+            pipeline_name: Name of the pipeline being executed.
+            order: List of step names in execution order.
+            steps: Mapping of step names to their metadata definitions.
+
+        Returns:
+            A dictionary containing the stored outputs for each step,
+            structured as:
+                {step_name: {output_key: metadata_dict}}
+        """
         LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
 
         client = None
