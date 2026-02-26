@@ -142,7 +142,7 @@ def _land_cover_preprocessor(
 
     keep_classes = context.preprocessing.lc_keep_classes
 
-    lc_binary = lc_cube.lccs_class.isin(keep_classes).astype("uint8")
+    lc_binary = lc_cube.lccs_class.isin(keep_classes)
 
     LOG.info("preprocessed land cover...")
     return lc_binary
@@ -189,24 +189,22 @@ def _resample_and_merge(
     cds_in_gm_sm = resample_in_space(era5, target_gm=gm_sm)
     cds_in_gm_sm = cds_in_gm_sm.assign_coords(time=era5.time)
 
-    lc.attrs["flag_values"] = [0, 1]
-    lc.attrs["flag_meanings"] = "no_data croplands_land_cover"
     lc_in_gm_sm = resample_in_space(
         lc.to_dataset(name="lc_binary"), target_gm=gm_sm, agg_methods="mode"
     )
     if "time" in lc_in_gm_sm.dims:
         lc_in_gm_sm = lc_in_gm_sm.squeeze("time", drop=True)
 
-    cds_masked = cds_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
-    soil_moisture_masked = soil_moisture.where(lc_in_gm_sm.lc_binary == 1)
+    cds_masked = cds_in_gm_sm.where(lc_in_gm_sm.lc_binary)
+    soil_moisture_masked = soil_moisture.where(lc_in_gm_sm.lc_binary)
 
     cds_masked_aligned = cds_masked.assign_coords(time=soil_moisture_masked.time)
 
     if gleam is not None:
         gleam_in_gm_sm = resample_in_space(gleam, target_gm=gm_sm)
-        gleam_masked = gleam_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
+        gleam_masked = gleam_in_gm_sm.where(lc_in_gm_sm.lc_binary)
 
-        LOG.info("merging...")
+        LOG.info("merging along with gleam...")
         ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned, gleam_masked])
 
     else:
