@@ -5,6 +5,7 @@ import time
 import xarray as xr
 from xcube.core.chunk import chunk_dataset
 from xcube.core.store import new_data_store
+from xcube_resampling import resample_in_time
 from zappend.api import zappend
 
 from irrigation_processor.config import AppConfig
@@ -103,11 +104,7 @@ def _get_cds_data(context: AppConfig, storage: Storage) -> str:
 
         # taking last() as the variables are accumulated over 24 hours
         # https://confluence.ecmwf.int/display/CKB/ERA5-Land%3A+data+documentation#heading-Accumulations
-        pev_daily = ds["pev"].resample(time="1D").last()
-        tp_daily = ds["tp"].resample(time="1D").last()
-
-        merged_ds = xr.merge([pev_daily, tp_daily])
-        return merged_ds
+        return resample_in_time(ds, "1D", agg_methods="last", variables=["pev", "tp"])
 
     datasets = []
     for data_id in sorted(data_ids):
