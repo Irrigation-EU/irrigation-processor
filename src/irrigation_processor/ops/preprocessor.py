@@ -154,8 +154,9 @@ def _era5_preprocessor(
     cds_cube = storage.load(cds_data_id)
     validate_dataset(context, cds_cube)
 
-    cds_cube["pev"] = cds_cube["pev"] * -1
-    cds_cube["pev"] = convert_m_to_mm(cds_cube["pev"])
+    if "pev" in cds_cube.columns:
+        cds_cube["pev"] = cds_cube["pev"] * -1
+        cds_cube["pev"] = convert_m_to_mm(cds_cube["pev"])
     cds_cube["tp"] = convert_m_to_mm(cds_cube["tp"])
 
     LOG.info("preprocessed era5...")
@@ -169,6 +170,7 @@ def _gleam_preprocessor(
         return None
 
     gleam_cube = storage.load(gleam_data_id)
+    gleam_cube = gleam_cube.rename({"Ep": "pev"})
     bbox: list[float] = context.base.bbox
 
     return gleam_cube.sel(lat=slice(bbox[3], bbox[1]), lon=slice(bbox[0], bbox[2]))
@@ -178,7 +180,7 @@ def _resample_and_merge(
     soil_moisture: xr.Dataset,
     lc: xr.DataArray,
     era5: xr.Dataset,
-    preprocessed_gleam: xr.Dataset | None = None,
+    gleam: xr.Dataset | None = None,
     chunk_sizes: dict[str, int] | None = None,
 ) -> xr.Dataset:
     LOG.info("resampling...")
@@ -192,15 +194,16 @@ def _resample_and_merge(
     lc_in_gm_sm = resample_in_space(
         lc.to_dataset(name="lc_binary"), target_gm=gm_sm, agg_methods="mode"
     )
-    lc_in_gm_sm = lc_in_gm_sm.squeeze("time", drop=True)
+    if "time" in lc_in_gm_sm.dims:
+        lc_in_gm_sm = lc_in_gm_sm.squeeze("time", drop=True)
 
     cds_masked = cds_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
     soil_moisture_masked = soil_moisture.where(lc_in_gm_sm.lc_binary == 1)
 
     cds_masked_aligned = cds_masked.assign_coords(time=soil_moisture_masked.time)
 
-    if preprocessed_gleam is not None:
-        gleam_in_gm_sm = resample_in_space(preprocessed_gleam, target_gm=gm_sm)
+    if gleam is not None:
+        gleam_in_gm_sm = resample_in_space(gleam, target_gm=gm_sm)
         gleam_masked = gleam_in_gm_sm.where(lc_in_gm_sm.lc_binary == 1)
 
         LOG.info("merging...")
