@@ -154,7 +154,9 @@ def _era5_preprocessor(
     cds_cube = storage.load(cds_data_id)
     validate_dataset(context, cds_cube)
 
-    if "pev" in cds_cube.columns:
+    if context.base.use_gleam:
+        cds_cube = cds_cube.drop_vars("pev")
+    else:
         cds_cube["pev"] = cds_cube["pev"] * -1
         cds_cube["pev"] = convert_m_to_mm(cds_cube["pev"])
     cds_cube["tp"] = convert_m_to_mm(cds_cube["tp"])

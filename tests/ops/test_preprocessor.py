@@ -114,7 +114,7 @@ class TestPreprocessor(unittest.TestCase):
 
         out = _land_cover_preprocessor(ctx, store, "lc")
 
-        self.assertEqual(out.dtype, "uint8")
+        self.assertEqual(out.dtype, "bool")
         self.assertEqual(out.shape, (2, 2))
         self.assertIn(1, out.values)
         self.assertEqual("lccs_class", out.name)

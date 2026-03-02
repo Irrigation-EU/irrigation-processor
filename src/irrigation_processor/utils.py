@@ -97,15 +97,23 @@ def validate_dataset(context: AppConfig, dataset: xr.Dataset) -> None:
         )
 
     # Temporal check
-    ds_min_time = dataset.time.min().values
-    ds_max_time = dataset.time.max().values
+    ds_min_date = dataset.time.min().values.astype("datetime64[D]")
+    ds_max_date = dataset.time.max().values.astype("datetime64[D]")
 
-    req_start = pd.to_datetime(context.base.time_range[0]).to_datetime64()
-    req_end = pd.to_datetime(context.base.time_range[1]).to_datetime64()
+    req_start = (
+        pd.to_datetime(context.base.time_range[0])
+        .to_datetime64()
+        .astype("datetime64[D]")
+    )
+    req_end = (
+        pd.to_datetime(context.base.time_range[1])
+        .to_datetime64()
+        .astype("datetime64[D]")
+    )
 
-    if ds_min_time > req_start or ds_max_time < req_end:
+    if ds_min_date > req_start or ds_max_date < req_end:
         raise ValueError(
-            f"Dataset time range [{ds_min_time}, {ds_max_time}] "
+            f"Dataset date range [{ds_min_date}, {ds_max_date}] "
             f"does not fully cover requested range [{req_start}, {req_end}]."
         )
 
