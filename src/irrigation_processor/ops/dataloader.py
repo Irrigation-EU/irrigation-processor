@@ -5,7 +5,6 @@ import time
 import xarray as xr
 from xcube.core.chunk import chunk_dataset
 from xcube.core.store import new_data_store
-from xcube_resampling import resample_in_time
 from zappend.api import zappend
 
 from irrigation_processor.config import AppConfig
