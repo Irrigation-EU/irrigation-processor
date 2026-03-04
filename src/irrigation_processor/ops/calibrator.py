@@ -116,7 +116,7 @@ def sm_inversion(
     z: float,
     RF: float,
     thr: float | None = None,
-):
+) -> np.ndarray:
     """Evotranspiration and Soil moisture to irrigation"""
     # sm - soil moisture
     # et - evotranspiration
@@ -144,7 +144,7 @@ def calib_sm_inversion(
     bounds: tuple | None = None,
     options: dict | None = None,
     method: str = "TNC",
-):
+) -> tuple[float, float, float, float]:
     if x0 is None:
         x0 = np.array([20.0, 5.0, 80, 1.0])
 
@@ -170,7 +170,7 @@ def calib_sm_inversion(
 
 def cost_fun(
     x0: np.ndarray, sm: np.ndarray, p_obs: np.ndarray, et: np.ndarray, NN: int
-):
+) -> float:
     # The following args are 1D time-series
     p_sim = sm_inversion(sm, et, x0[0], x0[1], x0[2], x0[3])
     p_obs = p_obs[:-1]
@@ -186,9 +186,24 @@ def cost_fun(
     return rmsd
 
 
-def calib_wrapper(sm_ts: np.ndarray, p_obs_ts: np.ndarray, et_ts: np.ndarray, NN: int):
-    if np.isnan(np.nanmean(sm_ts)):
-        return np.array([np.nan, np.nan, np.nan, np.nan])
+def calib_wrapper(
+        sm: np.ndarray,
+        p_obs: np.ndarray,
+        et: np.ndarray,
+        NN: int,
+) -> np.ndarray:
+    lat, lon, time = sm.shape
+    out = np.full((lat, lon, 4), np.nan, dtype=np.float64)
 
-    a, b, z, RF = calib_sm_inversion(sm_ts, p_obs_ts, et_ts, NN)
-    return np.array([a, b, z, RF])
+    valid = np.any(~np.isnan(sm), axis=2)
+    ii, jj = np.where(valid)
+
+    for i, j in zip(ii, jj):
+        sm_ts = sm[i, j, :]
+        p_ts = p_obs[i, j, :]
+        et_ts = et[i, j, :]
+
+        a, b, z, RF = calib_sm_inversion(sm_ts, p_ts, et_ts, NN)
+        out[i, j, :] = [a, b, z, RF]
+
+    return out
