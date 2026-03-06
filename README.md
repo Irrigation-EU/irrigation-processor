@@ -6,12 +6,19 @@
 [![isort](https://img.shields.io/badge/imports-isort-1674b1.svg)](https://pycqa.github.io/isort/)
 [![Pixi](https://img.shields.io/badge/env-pixi-5A67D8.svg)](https://pixi.sh)
 
-
 Irrigation Processor is a scientific Python package for estimating irrigation 
 water use (IWU) across **Europe** from soil moisture, meteorological variables, and land-cover 
 data using a reproducible, multi-step processing pipeline.
 
 This package was developed for the Irrigation-EU project funded by ESA.
+
+
+The map below shows the total irrigation water use estimates for 2022 derived 
+from datasets produced by the irrigation-processor pipeline after 
+post-processing.
+
+![](content/iwu2022.png)
+
 
 ## Overview
 
@@ -33,7 +40,7 @@ Each step:
 
 The processor contains 5 steps as shown below:
 
-![](pipeline.png)
+![](content/pipeline.png)
 
 ### 1. Data Loader (`dataloader`)
 
