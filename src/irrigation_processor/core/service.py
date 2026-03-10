@@ -194,7 +194,7 @@ class LocalService:
 
         # For xarray datasets or other heavy objects, we use storage
         # Append .zarr as it's the default format for xcube data store
-        data_id = f"{key}.zarr"
+        data_id = key if key.endswith(".zarr") else f"{key}.zarr"
         self.storage.save(data_id, val)
         return {"type": "stored", "data_id": data_id}
 
