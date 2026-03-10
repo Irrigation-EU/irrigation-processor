@@ -10,6 +10,7 @@ class FromStep:
     Use this in a step's inputs to say:
     "Take the value `key` from step `step`."
     """
+
     step: str
     key: str
 
@@ -27,6 +28,7 @@ class StepRegistry:
 
     Steps are registered using the @registry.step decorator.
     """
+
     def __init__(self):
         self._steps = {}
 
@@ -78,6 +80,7 @@ class StepRegistry:
             def process(ctx, dataset):
                 ...
         """
+
         def decorator(f: Callable) -> Callable:
             meta = StepMeta(
                 func=f,
@@ -99,6 +102,7 @@ class StepMeta:
     Describes a pipeline step: its function, inputs, outputs,
     and dependencies.
     """
+
     def __init__(
         self,
         func: Callable,
