@@ -179,16 +179,16 @@ class LocalService:
             return {"type": "inline", "value": val}
 
         if isinstance(val, (list, tuple)):
-            list_items = [self._store_value(v, f"{key}.{i}") for i,
-            v in enumerate(val)]
+            list_items = [self._store_value(v, f"{key}.{i}") for i, v in enumerate(val)]
             return {
                 "type": "list" if isinstance(val, list) else "tuple",
                 "items": list_items,
             }
 
         if isinstance(val, dict):
-            dict_items = {str(k): self._store_value(v, f"{key}.{k}") for k,
-            v in val.items()}
+            dict_items = {
+                str(k): self._store_value(v, f"{key}.{k}") for k, v in val.items()
+            }
             return {"type": "dict", "items": dict_items}
 
         # For xarray datasets or other heavy objects, we use storage

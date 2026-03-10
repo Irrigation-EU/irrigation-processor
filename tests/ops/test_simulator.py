@@ -111,17 +111,18 @@ class TestSimulator(unittest.TestCase):
         self,
     ):
         store = Mock()
-        store.exists.side_effect = [False, False, True, True] # Check inputs
+        store.exists.side_effect = [False, False, True, True]  # Check inputs
         store.list_ids.return_value = []
         store.load.side_effect = [
             make_calibration_ds(),  # open calibrated_path
-            make_iwu_est_ds(),      # open temporal result
+            make_iwu_est_ds(),  # open temporal result
         ]
 
         ctx = DummyContext()
 
-        pre = make_preprocessed_ds(time_range=pd.date_range("2024-01-01", periods=61, freq="D"))
-
+        pre = make_preprocessed_ds(
+            time_range=pd.date_range("2024-01-01", periods=61, freq="D")
+        )
 
         result = irrigation_simulator(
             ctx,
@@ -139,9 +140,7 @@ class TestSimulator(unittest.TestCase):
         )
 
         temporal_calls = [
-            c
-            for c in store.save.call_args_list
-            if c[0][0] == IWU_ESTIMATES_TEMPORAL_ID
+            c for c in store.save.call_args_list if c[0][0] == IWU_ESTIMATES_TEMPORAL_ID
         ]
         self.assertEqual(len(temporal_calls), 1)
 
@@ -150,8 +149,6 @@ class TestSimulator(unittest.TestCase):
         self.assertEqual(temporal_ds["iwu_est"].dims, ("time", "lat", "lon"))
 
         spatial_calls = [
-            c
-            for c in store.save.call_args_list
-            if c[0][0] == IWU_ESTIMATES_SPATIAL_ID
+            c for c in store.save.call_args_list if c[0][0] == IWU_ESTIMATES_SPATIAL_ID
         ]
         self.assertEqual(len(spatial_calls), 1)

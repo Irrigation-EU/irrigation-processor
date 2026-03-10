@@ -47,7 +47,8 @@ def run(
 
     from irrigation_processor.config import AppConfig
     from irrigation_processor.constants import LOG
-    from irrigation_processor.core import LocalService, Pipeline, XcubeDataStoreStorage
+    from irrigation_processor.core import (LocalService, Pipeline,
+                                           XcubeDataStoreStorage)
     from irrigation_processor.steps import registry
 
     # current workaround for GDAL env in Dask

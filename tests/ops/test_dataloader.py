@@ -96,11 +96,11 @@ class TestDataLoader(unittest.TestCase):
 
         np.testing.assert_allclose(
             out_ds["pev"].values[0],
-            [[-1., 2.], [-3., 4.]],
+            [[-1.0, 2.0], [-3.0, 4.0]],
         )
         np.testing.assert_allclose(
             out_ds["tp"].values[0],
-            [[10., 20.], [30., 40.]],
+            [[10.0, 20.0], [30.0, 40.0]],
         )
 
     @patch("irrigation_processor.ops.dataloader.get_existing_data")
@@ -168,7 +168,7 @@ class TestDataLoader(unittest.TestCase):
                 return make_daily_era5_ds(
                     time_range=["2024-01-01"],
                     pev_data=[[[4, 5], [6, 7]]],
-                    tp_data=[[[40, 50], [60, 70]]]
+                    tp_data=[[[40, 50], [60, 70]]],
                 )
             return ds
 
@@ -176,7 +176,7 @@ class TestDataLoader(unittest.TestCase):
 
         result = _get_cds_data(self.context, self.store)
 
-        written_ds = self.store.save.call_args_list[-1][1]['obj']
+        written_ds = self.store.save.call_args_list[-1][1]["obj"]
 
         self.assertEqual(written_ds.sizes["time"], 1)
         self.assertFalse(np.allclose(written_ds["pev"].values[0], ds["pev"].values[0]))
@@ -195,18 +195,20 @@ class TestDataLoader(unittest.TestCase):
         )
 
         calls = self.store.save.call_args_list
-        chunked_calls = [call for call in calls if call[1]['key'] == "era5_chunked.zarr"]
+        chunked_calls = [
+            call for call in calls if call[1]["key"] == "era5_chunked.zarr"
+        ]
         self.assertEqual(len(chunked_calls), 1)
-        chunked_ds = chunked_calls[0][1]['obj']
+        chunked_ds = chunked_calls[0][1]["obj"]
         self.assertEqual(chunked_ds.sizes["time"], 2)
         self.assertIn("pev", chunked_ds)
         self.assertIn("tp", chunked_ds)
         self.assertNotIn("expver", chunked_ds)
         self.assertNotIn("number", chunked_ds)
 
-        final_calls = [call for call in calls if call[1]['key'] == ERA5_DATA_ID]
+        final_calls = [call for call in calls if call[1]["key"] == ERA5_DATA_ID]
         self.assertEqual(len(final_calls), 1)
-        final_ds = final_calls[0][1]['obj']
+        final_ds = final_calls[0][1]["obj"]
         self.assertEqual(final_ds.sizes["time"], 1)
 
         self.store.delete.assert_called_once_with("era5_chunked.zarr")
