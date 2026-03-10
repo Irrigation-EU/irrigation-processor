@@ -122,9 +122,9 @@ def _do_spatial_masking(
     filtered_spatial = (
         iwu_spatial["iwu_est"].where(ds_in_gm_is["mask"] > threshold).squeeze()
     )
-    filtered_spatial = filtered_spatial.to_dataset(name="iwu_est")
+    filtered_spatial_ds = filtered_spatial.to_dataset(name="iwu_est")
     filtered_temporal = (
         iwu_temporal["iwu_est"].where(ds_in_gm_it["mask"] > threshold).squeeze()
     )
-    filtered_temporal = filtered_temporal.to_dataset(name="iwu_est")
-    return filtered_spatial, filtered_temporal
+    filtered_temporal_ds = filtered_temporal.to_dataset(name="iwu_est")
+    return filtered_spatial_ds, filtered_temporal_ds
