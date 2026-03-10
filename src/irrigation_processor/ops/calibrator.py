@@ -1,3 +1,4 @@
+from dask.distributed import Client
 import numpy as np
 import xarray as xr
 from scipy.optimize import minimize
@@ -10,7 +11,9 @@ from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def soil_moisture_inversion_calibration(
-    context: AppConfig, storage: Storage, preprocessed_data: xr.Dataset
+    context: AppConfig, storage: Storage, dask_client: Client,
+        preprocessed_data:
+        xr.Dataset
 ) -> dict:
     validate_dataset(context, preprocessed_data)
 
@@ -50,7 +53,7 @@ def soil_moisture_inversion_calibration(
         7,
         input_core_dims=[["time"], ["time"], ["time"], []],
         output_core_dims=[["params"]],
-        vectorize=True,
+        vectorize=False,
         dask="parallelized",
         output_dtypes=[float],
         output_sizes={"params": 4},
@@ -70,6 +73,7 @@ def soil_moisture_inversion_calibration(
         if storage.exists(f"calibrated_{i}.zarr"):
             continue
         storage.save(f"calibrated_{i}.zarr", subresult)
+        dask_client.restart()
 
     data_ids = storage.list_ids()
     data_ids_cal = [data_id for data_id in data_ids if "calibrated_" in data_id]
