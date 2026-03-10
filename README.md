@@ -71,11 +71,11 @@ Model parameters
 
 The calibration step estimates four parameters:
 
-| Parameter | Meaning (conceptual)                 |
-| --------- | ------------------------------------ |
-| `a`, `b`  | Nonlinear soil response coefficients |
-| `z`       | Soil water storage scaling           |
-| `RF`      | Rainfall–soil moisture coupling      |
+| Parameter | Meaning (conceptual)                  |
+| --------- |---------------------------------------|
+| `a`, `b`  | Soil hydraulic parameters             |
+| `z`       | Soil water capacity                   |
+| `RF`      | Evapotranspiration correction factor  |
 
 Calibration is:
 
