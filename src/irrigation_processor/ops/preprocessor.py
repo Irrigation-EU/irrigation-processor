@@ -166,7 +166,7 @@ def _era5_preprocessor(
 
 
 def _gleam_preprocessor(
-    context: AppConfig, storage: Storage, gleam_data_id: str
+    context: AppConfig, storage: Storage, gleam_data_id: str | None
 ) -> xr.Dataset | None:
     if gleam_data_id is None:
         return None

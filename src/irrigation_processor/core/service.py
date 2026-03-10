@@ -179,15 +179,17 @@ class LocalService:
             return {"type": "inline", "value": val}
 
         if isinstance(val, (list, tuple)):
-            items = [self._store_value(v, f"{key}.{i}") for i, v in enumerate(val)]
+            list_items = [self._store_value(v, f"{key}.{i}") for i,
+            v in enumerate(val)]
             return {
                 "type": "list" if isinstance(val, list) else "tuple",
-                "items": items,
+                "items": list_items,
             }
 
         if isinstance(val, dict):
-            items = {str(k): self._store_value(v, f"{key}.{k}") for k, v in val.items()}
-            return {"type": "dict", "items": items}
+            dict_items = {str(k): self._store_value(v, f"{key}.{k}") for k,
+            v in val.items()}
+            return {"type": "dict", "items": dict_items}
 
         # For xarray datasets or other heavy objects, we use storage
         # Append .zarr as it's the default format for xcube data store
