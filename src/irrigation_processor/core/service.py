@@ -27,6 +27,9 @@ class LocalService:
         # {"type": "stored", "data_id": ...}
         self._state: dict[str, dict[str, dict[str, Any]]] = {}
 
+        self.client = None
+        self.cluster = None
+
     def run(
         self,
         pipeline_name: str,
@@ -50,18 +53,16 @@ class LocalService:
         """
         LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
 
-        client = None
-        cluster = None
-
         try:
-            dask_kwargs = self.app_config.dask.dask_kwargs.model_dump()
-            cluster = LocalCluster(**dask_kwargs)
-            client = Client(cluster)
-            LOG.info(f"Initialized Dask cluster: {client.dashboard_link}")
-
             for step_name in order:
-                step_meta = steps[step_name]
                 LOG.info(f"Running step: {step_name}")
+                step_meta = steps[step_name]
+
+                LOG.warning("Restarting Dask client")
+                dask_kwargs = self.app_config.dask.dask_kwargs.model_dump()
+                self.cluster = LocalCluster(**dask_kwargs)
+                self.client = Client(self.cluster)
+                LOG.info(f"Initialized Dask cluster: {self.client.dashboard_link}")
 
                 resolved_args, resolved_kwargs = self._resolve_inputs(
                     step_name, step_meta
@@ -70,22 +71,28 @@ class LocalService:
                 sig = inspect.signature(step_meta.func)
                 ctx = self.app_config
 
+                call_args: list[Any] = [ctx]
+
                 if "storage" in sig.parameters:
-                    result = step_meta.func(
-                        ctx, self.storage, *resolved_args, **resolved_kwargs
-                    )
-                else:
-                    result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
+                    call_args.append(self.storage)
+
+                if "dask_client" in sig.parameters:
+                    call_args.append(self.client)
+
+                call_args.extend(resolved_args)
+
+                result = step_meta.func(*call_args, **resolved_kwargs)
+
                 out_map = self._normalize_outputs(step_name, step_meta, result)
                 self._state[step_name] = out_map
                 LOG.info(f"Step state: {step_name}: {out_map}")
                 save_pipeline_step_state(pipeline_name, step_name, out_map)
 
         finally:
-            if client:
-                client.close()
-            if cluster:
-                cluster.close()
+            if self.client:
+                self.client.close()
+            if self.cluster:
+                self.cluster.close()
 
         LOG.info(f"Pipeline run for: {pipeline_name} completed.")
         return self._state
