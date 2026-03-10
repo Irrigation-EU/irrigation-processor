@@ -18,6 +18,7 @@ class LocalService:
     It executes each step in order, passes outputs between steps,
     and automatically saves results using the configured storage.
     """
+
     def __init__(self, storage: Storage, app_config: AppConfig):
         self.storage = storage
         self.app_config = app_config

@@ -1,6 +1,6 @@
-from dask.distributed import Client
 import numpy as np
 import xarray as xr
+from dask.distributed import Client
 from scipy.optimize import minimize
 from xcube.core.chunk import chunk_dataset
 
@@ -11,9 +11,10 @@ from irrigation_processor.utils import get_existing_data, validate_dataset
 
 
 def soil_moisture_inversion_calibration(
-    context: AppConfig, storage: Storage, dask_client: Client,
-        preprocessed_data:
-        xr.Dataset
+    context: AppConfig,
+    storage: Storage,
+    dask_client: Client,
+    preprocessed_data: xr.Dataset,
 ) -> dict:
     validate_dataset(context, preprocessed_data)
 
@@ -191,10 +192,10 @@ def cost_fun(
 
 
 def calib_wrapper(
-        sm: np.ndarray,
-        p_obs: np.ndarray,
-        et: np.ndarray,
-        NN: int,
+    sm: np.ndarray,
+    p_obs: np.ndarray,
+    et: np.ndarray,
+    NN: int,
 ) -> np.ndarray:
     lat, lon, time = sm.shape
     out = np.full((lat, lon, 4), np.nan, dtype=np.float64)
