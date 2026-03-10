@@ -60,7 +60,8 @@ def calibration(
     dask_client: Client,
     preprocessed_data: xr.Dataset,
 ):
-    from irrigation_processor.ops.calibrator import soil_moisture_inversion_calibration
+    from irrigation_processor.ops.calibrator import \
+        soil_moisture_inversion_calibration
 
     return soil_moisture_inversion_calibration(
         context, storage, dask_client, preprocessed_data

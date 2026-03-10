@@ -120,7 +120,7 @@ class TestCalibrator(unittest.TestCase):
     def test_calib_wrapper_delegates(self, mock_calib):
         mock_calib.return_value = (1.0, 2.0, 3.0, 4.0)
 
-        sm = np.ones((2,3,5))
+        sm = np.ones((2, 3, 5))
         et = np.ones_like(sm)
         p_obs = np.ones_like(sm)
 
@@ -150,7 +150,14 @@ class TestCalibrator(unittest.TestCase):
         self,
     ) -> None:
         store = Mock()
-        store.exists.side_effect = [False, False, False, False, False, True] # Check existing, then check for subresults
+        store.exists.side_effect = [
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+        ]  # Check existing, then check for subresults
         store.list_ids.return_value = ["calibrated_0.zarr"]
         store.load.return_value = xr.Dataset(
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}

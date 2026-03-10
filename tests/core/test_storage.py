@@ -111,4 +111,3 @@ class TestStorage(unittest.TestCase):
         storage = XcubeDataStoreStorage()
         storage.delete("data1")
         store.delete_data.assert_called_once_with("data1")
-

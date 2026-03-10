@@ -6,17 +6,11 @@ from xcube_resampling.gridmapping import GridMapping
 from xcube_resampling.spatial import resample_in_space
 
 from irrigation_processor.config import AppConfig
-from irrigation_processor.constants import (
-    INPUT_FOR_CALIBRATION_ID,
-    LOG,
-    PROCESSED_CLMS_DATA_ID,
-)
+from irrigation_processor.constants import (INPUT_FOR_CALIBRATION_ID, LOG,
+                                            PROCESSED_CLMS_DATA_ID)
 from irrigation_processor.core.storage import Storage
-from irrigation_processor.utils import (
-    convert_m_to_mm,
-    get_existing_data,
-    validate_dataset,
-)
+from irrigation_processor.utils import (convert_m_to_mm, get_existing_data,
+                                        validate_dataset)
 
 
 def irrigation_preprocessor(

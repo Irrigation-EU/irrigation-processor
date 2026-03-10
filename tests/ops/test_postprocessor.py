@@ -15,7 +15,7 @@ from tests.helpers import DummyContext, make_iwu_ds, make_mask_ds
 class TestPostprocessor(unittest.TestCase):
     def test_postprocessor_cached(self):
         store = Mock()
-        store.exists.side_effect = [True, True] # Check both ids
+        store.exists.side_effect = [True, True]  # Check both ids
         store.list_ids.return_value = [
             IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
             IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
