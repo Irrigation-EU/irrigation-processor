@@ -54,16 +54,17 @@ class LocalService:
         """
         LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
 
+        dask_kwargs = self.app_config.dask.dask_kwargs.model_dump()
+        self.cluster = LocalCluster(**dask_kwargs)
+        self.client = Client(self.cluster)
+        LOG.info(f"Initialized Dask cluster: {self.client.dashboard_link}")
         try:
             for step_name in order:
                 LOG.info(f"Running step: {step_name}")
                 step_meta = steps[step_name]
 
                 LOG.warning("Restarting Dask client")
-                dask_kwargs = self.app_config.dask.dask_kwargs.model_dump()
-                self.cluster = LocalCluster(**dask_kwargs)
-                self.client = Client(self.cluster)
-                LOG.info(f"Initialized Dask cluster: {self.client.dashboard_link}")
+                self.client.restart()
 
                 resolved_args, resolved_kwargs = self._resolve_inputs(
                     step_name, step_meta
