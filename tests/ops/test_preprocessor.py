@@ -58,7 +58,9 @@ class TestPreprocessor(unittest.TestCase):
         out = irrigation_preprocessor(ctx, store, "sm", "lc", "era5", "gleam")
 
         self.assertEqual(out, "MERGED")
-        mock_merge.assert_called_once_with("SM", "LC", "ERA5", None, chunk_sizes={'time': -1, 'lat': 50, 'lon': 50})
+        mock_merge.assert_called_once_with(
+            "SM", "LC", "ERA5", None, chunk_sizes={"time": -1, "lat": 50, "lon": 50}
+        )
 
     @patch("irrigation_processor.ops.preprocessor.validate_dataset")
     def test_soil_moisture_preprocessor_cached(self, mock_validate):
@@ -77,7 +79,9 @@ class TestPreprocessor(unittest.TestCase):
         store = Mock()
         store.exists.return_value = False
         store.list_ids.return_value = []
-        store.load.return_value = make_clms_ds(time_range=pd.date_range("2024-01-01", periods=3, freq="D"))
+        store.load.return_value = make_clms_ds(
+            time_range=pd.date_range("2024-01-01", periods=3, freq="D")
+        )
 
         ctx = DummyContext()
 
@@ -114,7 +118,7 @@ class TestPreprocessor(unittest.TestCase):
 
         out = _land_cover_preprocessor(ctx, store, "lc")
 
-        self.assertEqual(out.dtype, "uint8")
+        self.assertEqual(out.dtype, "bool")
         self.assertEqual(out.shape, (2, 2))
         self.assertIn(1, out.values)
         self.assertEqual("lccs_class", out.name)
@@ -122,7 +126,9 @@ class TestPreprocessor(unittest.TestCase):
 
     def test_era5_preprocessor(self):
         store = Mock()
-        store.load.return_value = make_era5_ds(time_range=pd.date_range("2024-01-01", periods=2, freq="D"))
+        store.load.return_value = make_era5_ds(
+            time_range=pd.date_range("2024-01-01", periods=2, freq="D")
+        )
 
         ctx = DummyContext()
 
@@ -133,7 +139,10 @@ class TestPreprocessor(unittest.TestCase):
         self.assertEqual(out.pev.shape, (2, 2, 2))
         self.assertEqual(out.tp.shape, (2, 2, 2))
         self.assertEqual(
-            [[[1000.0, -2000.0], [3000.0, -4000.0]], [[-2000.0, 3000.0], [-4000.0, -5000.0]]],
+            [
+                [[1000.0, -2000.0], [3000.0, -4000.0]],
+                [[-2000.0, 3000.0], [-4000.0, -5000.0]],
+            ],
             out.pev.values.tolist(),
         )
         self.assertEqual(

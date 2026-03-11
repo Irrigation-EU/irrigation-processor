@@ -66,7 +66,7 @@ class StorageOptionsConfig(BaseModel):
     anon: bool
     key: str
     secret: str
-    client_kwargs: dict[str, Any]
+    client_kwargs: dict[str, Any] | None = None
 
 
 class StoreKwargsConfig(BaseModel):

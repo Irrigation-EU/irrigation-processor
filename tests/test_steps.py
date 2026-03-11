@@ -83,7 +83,10 @@ class TestPipelineDefinition(unittest.TestCase):
     def test_postprocessing_step_metadata(self):
         meta = registry.get("postprocessing")
 
-        self.assertEqual(meta.outputs, ("iwu_postprocessed_spatial_path", "iwu_postprocessed_temporal_path"))
+        self.assertEqual(
+            meta.outputs,
+            ("iwu_postprocessed_spatial_path", "iwu_postprocessed_temporal_path"),
+        )
         self.assertEqual(
             meta.inputs,
             (

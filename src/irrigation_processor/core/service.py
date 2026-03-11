@@ -12,6 +12,13 @@ from irrigation_processor.core.storage import Storage
 
 
 class LocalService:
+    """
+    Runs all steps of a pipeline on your local machine.
+
+    It executes each step in order, passes outputs between steps,
+    and automatically saves results using the configured storage.
+    """
+
     def __init__(self, storage: Storage, app_config: AppConfig):
         self.storage = storage
         self.app_config = app_config
@@ -21,27 +28,43 @@ class LocalService:
         # {"type": "stored", "data_id": ...}
         self._state: dict[str, dict[str, dict[str, Any]]] = {}
 
+        self.client = None
+        self.cluster = None
+
     def run(
         self,
         pipeline_name: str,
         order: list[str],
         steps: dict[str, StepMeta],
     ):
-        """Execute steps in given order. Returns state with outputs."""
+        """
+        Execute steps in given order, stores the intermediate results via
+        storage if applicable, and returns a dictionary containing the stored
+        outputs for each step.
+
+        Args:
+            pipeline_name: Name of the pipeline being executed.
+            order: List of step names in execution order.
+            steps: Mapping of step names to their metadata definitions.
+
+        Returns:
+            A dictionary containing the stored outputs for each step,
+            structured as:
+                {step_name: {output_key: metadata_dict}}
+        """
         LOG.info(f"Starting pipeline: {pipeline_name} from LocalService")
 
-        client = None
-        cluster = None
-
+        dask_kwargs = self.app_config.dask.dask_kwargs.model_dump()
+        self.cluster = LocalCluster(**dask_kwargs)
+        self.client = Client(self.cluster)
+        LOG.info(f"Initialized Dask cluster: {self.client.dashboard_link}")
         try:
-            dask_kwargs = self.app_config.dask.dask_kwargs.model_dump()
-            cluster = LocalCluster(**dask_kwargs)
-            client = Client(cluster)
-            LOG.info(f"Initialized Dask cluster: {client.dashboard_link}")
-
             for step_name in order:
-                step_meta = steps[step_name]
                 LOG.info(f"Running step: {step_name}")
+                step_meta = steps[step_name]
+
+                LOG.warning("Restarting Dask client")
+                self.client.restart()
 
                 resolved_args, resolved_kwargs = self._resolve_inputs(
                     step_name, step_meta
@@ -50,22 +73,28 @@ class LocalService:
                 sig = inspect.signature(step_meta.func)
                 ctx = self.app_config
 
+                call_args: list[Any] = [ctx]
+
                 if "storage" in sig.parameters:
-                    result = step_meta.func(
-                        ctx, self.storage, *resolved_args, **resolved_kwargs
-                    )
-                else:
-                    result = step_meta.func(ctx, *resolved_args, **resolved_kwargs)
+                    call_args.append(self.storage)
+
+                if "dask_client" in sig.parameters:
+                    call_args.append(self.client)
+
+                call_args.extend(resolved_args)
+
+                result = step_meta.func(*call_args, **resolved_kwargs)
+
                 out_map = self._normalize_outputs(step_name, step_meta, result)
                 self._state[step_name] = out_map
                 LOG.info(f"Step state: {step_name}: {out_map}")
                 save_pipeline_step_state(pipeline_name, step_name, out_map)
 
         finally:
-            if client:
-                client.close()
-            if cluster:
-                cluster.close()
+            if self.client:
+                self.client.close()
+            if self.cluster:
+                self.cluster.close()
 
         LOG.info(f"Pipeline run for: {pipeline_name} completed.")
         return self._state
@@ -151,19 +180,21 @@ class LocalService:
             return {"type": "inline", "value": val}
 
         if isinstance(val, (list, tuple)):
-            items = [self._store_value(v, f"{key}.{i}") for i, v in enumerate(val)]
+            list_items = [self._store_value(v, f"{key}.{i}") for i, v in enumerate(val)]
             return {
                 "type": "list" if isinstance(val, list) else "tuple",
-                "items": items,
+                "items": list_items,
             }
 
         if isinstance(val, dict):
-            items = {str(k): self._store_value(v, f"{key}.{k}") for k, v in val.items()}
-            return {"type": "dict", "items": items}
+            dict_items = {
+                str(k): self._store_value(v, f"{key}.{k}") for k, v in val.items()
+            }
+            return {"type": "dict", "items": dict_items}
 
         # For xarray datasets or other heavy objects, we use storage
         # Append .zarr as it's the default format for xcube data store
-        data_id = f"{key}.zarr"
+        data_id = key if key.endswith(".zarr") else f"{key}.zarr"
         self.storage.save(data_id, val)
         return {"type": "stored", "data_id": data_id}
 

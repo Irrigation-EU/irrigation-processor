@@ -8,13 +8,8 @@ from xcube.core.store import new_data_store
 from zappend.api import zappend
 
 from irrigation_processor.config import AppConfig
-from irrigation_processor.constants import (
-    CLMS_DATA_ID,
-    ERA5_DATA_ID,
-    GLEAM_DATA_ID,
-    LC_DATA_ID,
-    LOG,
-)
+from irrigation_processor.constants import (CLMS_DATA_ID, ERA5_DATA_ID,
+                                            GLEAM_DATA_ID, LC_DATA_ID, LOG)
 from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data, split_date_range
 

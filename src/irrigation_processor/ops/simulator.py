@@ -3,11 +3,8 @@ import xarray as xr
 from xcube.core.chunk import chunk_dataset
 
 from irrigation_processor.config import AppConfig
-from irrigation_processor.constants import (
-    IWU_ESTIMATES_SPATIAL_ID,
-    IWU_ESTIMATES_TEMPORAL_ID,
-    LOG,
-)
+from irrigation_processor.constants import (IWU_ESTIMATES_SPATIAL_ID,
+                                            IWU_ESTIMATES_TEMPORAL_ID, LOG)
 from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data, validate_dataset
 
@@ -18,7 +15,7 @@ def irrigation_simulator(
     preprocessed_ds: xr.Dataset,
     calibrated_path: str,
 ) -> dict:
-    LOG.info("simulating rainfall...")
+    LOG.info("simulating irrigation water use...")
 
     result_spatial = get_existing_data(
         storage=storage,
@@ -38,8 +35,8 @@ def irrigation_simulator(
 
     validate_dataset(context, preprocessed_ds)
 
-    assert calibration.dims["params"] == 4, (
-        f"4 params expected, got {calibration.dims['params']}"
+    assert calibration.sizes["params"] == 4, (
+        f"4 params expected, got {calibration.sizes['params']}"
     )
 
     psim = xr.apply_ufunc(
@@ -88,7 +85,7 @@ def irrigation_simulator(
         IRR_biweekly.to_dataset(name="iwu_est"),
     )
 
-    IRR_biweekly_temporal = storage.load("iwu_estimates_temporal.zarr")
+    IRR_biweekly_temporal = storage.load(IWU_ESTIMATES_TEMPORAL_ID)
     IRR_biweekly_spatial = chunk_dataset(
         IRR_biweekly_temporal,
         context.simulation.spatial_chunks.to_dict(),
@@ -129,7 +126,7 @@ def _ts_smet4irr(
 
 
 def _resample_sum(dataarray: xr.DataArray, step: int) -> xr.DataArray:
-    data = dataarray.values
+    data = dataarray.data
     steps = dataarray.time.size // step
     data = data[: steps * step, :, :]
     data = data.reshape(steps, step, dataarray.sizes["lat"], dataarray.sizes["lon"])

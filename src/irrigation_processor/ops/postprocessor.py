@@ -11,8 +11,7 @@ from xcube_resampling.gridmapping import GridMapping
 from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import (
     IWU_POSTPROCESSED_ESTIMATES_SPATIAL_ID,
-    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID,
-)
+    IWU_POSTPROCESSED_ESTIMATES_TEMPORAL_ID)
 from irrigation_processor.core.storage import Storage
 from irrigation_processor.utils import get_existing_data
 
@@ -122,9 +121,9 @@ def _do_spatial_masking(
     filtered_spatial = (
         iwu_spatial["iwu_est"].where(ds_in_gm_is["mask"] > threshold).squeeze()
     )
-    filtered_spatial = filtered_spatial.to_dataset(name="iwu_est")
+    filtered_spatial_ds = filtered_spatial.to_dataset(name="iwu_est")
     filtered_temporal = (
         iwu_temporal["iwu_est"].where(ds_in_gm_it["mask"] > threshold).squeeze()
     )
-    filtered_temporal = filtered_temporal.to_dataset(name="iwu_est")
-    return filtered_spatial, filtered_temporal
+    filtered_temporal_ds = filtered_temporal.to_dataset(name="iwu_est")
+    return filtered_spatial_ds, filtered_temporal_ds

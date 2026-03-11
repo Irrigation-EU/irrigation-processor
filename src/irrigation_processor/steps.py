@@ -1,4 +1,5 @@
 import xarray as xr
+from dask.distributed import Client
 
 from irrigation_processor.config import AppConfig
 from irrigation_processor.constants import INPUT_FOR_CALIBRATION_ID
@@ -53,10 +54,18 @@ def preprocessing(
     inputs=(FromStep("preprocessing", INPUT_FOR_CALIBRATION_ID),),
     outputs=("calibrated_data_id",),
 )
-def calibration(context: AppConfig, storage: Storage, preprocessed_data: xr.Dataset):
-    from irrigation_processor.ops.calibrator import soil_moisture_inversion_calibration
+def calibration(
+    context: AppConfig,
+    storage: Storage,
+    dask_client: Client,
+    preprocessed_data: xr.Dataset,
+):
+    from irrigation_processor.ops.calibrator import \
+        soil_moisture_inversion_calibration
 
-    return soil_moisture_inversion_calibration(context, storage, preprocessed_data)
+    return soil_moisture_inversion_calibration(
+        context, storage, dask_client, preprocessed_data
+    )
 
 
 @registry.step(

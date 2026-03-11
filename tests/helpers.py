@@ -17,6 +17,7 @@ DEFAULT_TIME_RANGE = ["2024-01-01", "2024-01-02"]
 DEFAULT_LAT = [44.0, 43.0]
 DEFAULT_LON = [-5.0, -4.0]
 
+
 class DummyStepMeta:
     def __init__(self, name, func=None, depends_on=None, inputs=None, outputs=None):
         self.name = name
@@ -29,7 +30,7 @@ class DummyStepMeta:
 class DummyContext:
     def __init__(self, store=None):
         self.store = store or Mock()
-        
+
         self._config = make_test_config()
 
     def __getattr__(self, item):
@@ -37,6 +38,7 @@ class DummyContext:
             return getattr(self._config, item)
         except AttributeError:
             raise AttributeError(f"{type(self).__name__} has no attribute '{item}'")
+
 
 def make_test_config() -> AppConfig:
     base_config = AppConfig(
@@ -80,13 +82,16 @@ def make_test_config() -> AppConfig:
         ),
         storage=StorageConfig(
             store_id="store",
-            store_kwargs={"root": "output_dir", "max_depth": 5,
-                          "storage_options": {
-                              "anon": True,
-                              "key": "key",
-                              "secret": "secret",
-                              "client_kwargs": {}
-                          }},
+            store_kwargs={
+                "root": "output_dir",
+                "max_depth": 5,
+                "storage_options": {
+                    "anon": True,
+                    "key": "key",
+                    "secret": "secret",
+                    "client_kwargs": {},
+                },
+            },
         ),
         dask=DaskConfig(
             dask_kwargs={
@@ -104,8 +109,15 @@ def make_test_config() -> AppConfig:
 def dummy_context():
     return DummyContext
 
-def make_preprocessed_ds(time_range=None, lat_range=None, lon_range=None,
-                         swi_data=None, tp_data=None, pev_data=None) -> xr.Dataset:
+
+def make_preprocessed_ds(
+    time_range=None,
+    lat_range=None,
+    lon_range=None,
+    swi_data=None,
+    tp_data=None,
+    pev_data=None,
+) -> xr.Dataset:
     if time_range is None:
         time = pd.date_range(DEFAULT_TIME_RANGE[0], periods=2, freq="D")
     else:
@@ -137,12 +149,13 @@ def make_preprocessed_ds(time_range=None, lat_range=None, lon_range=None,
         },
     )
 
+
 def make_iwu_ds(time_range=None):
     if time_range is None:
         time = pd.date_range(DEFAULT_TIME_RANGE[0], periods=3, freq="2W")
     else:
         time = pd.to_datetime(time_range)
-        
+
     shape = (len(time), 2, 2)
     return xr.Dataset(
         {
@@ -159,15 +172,16 @@ def make_iwu_ds(time_range=None):
         },
     )
 
+
 def make_era5_ds(time_range=None):
     if time_range is None:
         time = pd.date_range(DEFAULT_TIME_RANGE[0], periods=2, freq="D")
     else:
         time = pd.to_datetime(time_range)
-        
+
     pev = np.zeros((len(time), 2, 2), dtype=np.float32)
     tp = np.zeros((len(time), 2, 2), dtype=np.float32)
-    
+
     if len(time) >= 1:
         pev[0] = [[-1, 2], [-3, 4]]
         tp[0] = [[10, 20], [30, 40]]
@@ -190,14 +204,15 @@ def make_era5_ds(time_range=None):
         },
     )
 
+
 def make_clms_ds(time_range=None):
     if time_range is None:
         time = pd.date_range(DEFAULT_TIME_RANGE[0], periods=2, freq="D")
     else:
         time = pd.to_datetime(time_range)
-        
+
     ssm = np.zeros((len(time), 2, 2), dtype=np.float32) + 0.1
-    
+
     return xr.Dataset(
         {
             "ssm": (("time", "lat", "lon"), ssm),
@@ -210,15 +225,16 @@ def make_clms_ds(time_range=None):
         },
     )
 
+
 def make_raw_clms_ds(time_range=None):
     if time_range is None:
         time = pd.date_range(DEFAULT_TIME_RANGE[0], periods=2, freq="1D")
     else:
         time = pd.to_datetime(time_range)
-        
+
     ssm = np.zeros((len(time), 2, 2), dtype=np.float32) + 0.1
     ssm_noise = np.zeros((len(time), 2, 2), dtype=np.float32) + 1.0
-    
+
     return xr.Dataset(
         {
             "ssm": (("time", "y", "x"), ssm),
@@ -232,6 +248,7 @@ def make_raw_clms_ds(time_range=None):
         },
     )
 
+
 def make_mask_ds():
     return xr.Dataset(
         {"band_1": (("y", "x"), [[6, 3], [7, 9]])},
@@ -241,6 +258,7 @@ def make_mask_ds():
             "spatial_ref": 0,
         },
     )
+
 
 def make_clms_ds_with_gap():
     time = pd.to_datetime([DEFAULT_TIME_RANGE[0], "2024-01-03"])
@@ -257,6 +275,7 @@ def make_clms_ds_with_gap():
         },
     )
 
+
 def make_lc_ds():
     return xr.Dataset(
         {"lccs_class": (("lat", "lon"), [[10, 30], [40, 11]])},
@@ -265,6 +284,7 @@ def make_lc_ds():
             "lon": DEFAULT_LON,
         },
     )
+
 
 def make_lc_mask():
     return xr.DataArray(
@@ -276,6 +296,7 @@ def make_lc_mask():
             "lon": DEFAULT_LON,
         },
     )
+
 
 def make_calibration_ds():
     return xr.Dataset(
@@ -292,12 +313,13 @@ def make_calibration_ds():
         },
     )
 
+
 def make_iwu_est_ds(time_range=None):
     if time_range is None:
         time = pd.date_range(DEFAULT_TIME_RANGE[0], periods=10, freq="2W")
     else:
         time = pd.to_datetime(time_range)
-    
+
     return xr.Dataset(
         {"iwu_est": (("time", "lat", "lon"), np.ones((len(time), 2, 2)))},
         coords={

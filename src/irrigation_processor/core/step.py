@@ -4,6 +4,13 @@ from typing import Any, Callable, Mapping, Sequence
 
 @dataclass
 class FromStep:
+    """
+    A helper class used to reference an output value produced by another step.
+
+    Use this in a step's inputs to say:
+    "Take the value `key` from step `step`."
+    """
+
     step: str
     key: str
 
@@ -16,6 +23,12 @@ Inputs = Sequence[InputValue] | Mapping[str, InputValue]
 
 
 class StepRegistry:
+    """
+    Stores and manages all available pipeline steps.
+
+    Steps are registered using the @registry.step decorator.
+    """
+
     def __init__(self):
         self._steps = {}
 
@@ -42,6 +55,32 @@ class StepRegistry:
         depends_on: Sequence[str] = (),
         name: str | None = None,
     ) -> Callable:
+        """
+        Decorator used to define and register a pipeline step.
+
+        Args:
+            func: The function to decorate. Usually omitted when using
+                the decorator with arguments.
+            inputs: Input values for the step. Can be literals or
+                references to other steps via `FromStep`.
+            outputs: Optional names of the outputs produced by the step.
+            depends_on: Optional names of steps that must run before this step.
+            name: Optional custom name for the step. Defaults to
+                the function name.
+
+        Returns:
+            The original function, registered as a pipeline step.
+
+        Example:
+            @registry.step(
+                inputs=[FromStep("load_data", "dataset")],
+                outputs=["result"],
+                depends_on=["load_data"],
+            )
+            def process(ctx, dataset):
+                ...
+        """
+
         def decorator(f: Callable) -> Callable:
             meta = StepMeta(
                 func=f,
@@ -59,6 +98,11 @@ class StepRegistry:
 
 
 class StepMeta:
+    """
+    Describes a pipeline step: its function, inputs, outputs,
+    and dependencies.
+    """
+
     def __init__(
         self,
         func: Callable,
