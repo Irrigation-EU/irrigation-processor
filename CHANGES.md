@@ -1,3 +1,5 @@
+# Changes in version 0.1.2 (in development)
+
 # Changes in version 0.1.1
 
 - Added documentation for key classes.
@@ -8,6 +10,7 @@
 - Updated `README.md` and test suite.
 - Updated support for the GLEAM dataset to use its `Potential Evaporation`
   variable instead of ERA5-Land.
+
 # Changes in version 0.1.0
 
 - Implemented `Pipeline` framework that allows the user to 

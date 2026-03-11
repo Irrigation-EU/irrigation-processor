@@ -7,7 +7,7 @@ dependencies = []
 name = "irrigation-processor"
 readme = "README.md"
 description = "Processor for generating Irrigation Water Use (IWU) estimates datasets"
-version = "0.1.1"
+version = "0.1.2"
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
