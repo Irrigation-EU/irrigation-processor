@@ -126,7 +126,7 @@ def _ts_smet4irr(
 
 
 def _resample_sum(dataarray: xr.DataArray, step: int) -> xr.DataArray:
-    data = dataarray.values
+    data = dataarray.data
     steps = dataarray.time.size // step
     data = data[: steps * step, :, :]
     data = data.reshape(steps, step, dataarray.sizes["lat"], dataarray.sizes["lon"])
