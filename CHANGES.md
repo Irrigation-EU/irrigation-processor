@@ -1,4 +1,4 @@
-# Changes in version 0.1.1 (in development)
+# Changes in version 0.1.1
 
 - Added documentation for key classes.
 - Step functions can now optionally receive the Dask `Client` by including 
