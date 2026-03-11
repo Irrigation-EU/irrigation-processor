@@ -15,7 +15,7 @@ def irrigation_simulator(
     preprocessed_ds: xr.Dataset,
     calibrated_path: str,
 ) -> dict:
-    LOG.info("simulating rainfall...")
+    LOG.info("simulating irrigation water use...")
 
     result_spatial = get_existing_data(
         storage=storage,
@@ -85,7 +85,7 @@ def irrigation_simulator(
         IRR_biweekly.to_dataset(name="iwu_est"),
     )
 
-    IRR_biweekly_temporal = storage.load("iwu_estimates_temporal.zarr")
+    IRR_biweekly_temporal = storage.load(IWU_ESTIMATES_TEMPORAL_ID)
     IRR_biweekly_spatial = chunk_dataset(
         IRR_biweekly_temporal,
         context.simulation.spatial_chunks.to_dict(),
