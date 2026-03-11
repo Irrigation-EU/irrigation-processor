@@ -107,24 +107,28 @@ class TestCalibrator(unittest.TestCase):
         self.assertTrue(0.1 <= RF <= 1.4)
 
     def test_calib_wrapper_all_nan_returns_nan_params(self):
-        sm = np.array([np.nan, np.nan])
-        et = np.array([1.0, 1.0])
-        p_obs = np.array([1.0, 1.0])
+        sm = np.array([[[np.nan, np.nan]]])
+        et = np.array([[[1.0, 1.0]]])
+        p_obs = np.array([[[1.0, 1.0]]])
 
         out = calib_wrapper(sm, p_obs, et, NN=1)
 
         self.assertTrue(np.all(np.isnan(out)))
+        self.assertEqual(out.shape, (1, 1, 4))
 
     @patch("irrigation_processor.ops.calibrator.calib_sm_inversion")
     def test_calib_wrapper_delegates(self, mock_calib):
         mock_calib.return_value = (1.0, 2.0, 3.0, 4.0)
 
-        sm = np.array([0.1, 0.2, 0.3])
+        sm = np.ones((2, 3, 5))
         et = np.ones_like(sm)
-        p_obs = np.ones(len(sm) - 1)
+        p_obs = np.ones_like(sm)
 
         out = calib_wrapper(sm, p_obs, et, NN=1)
+
         self.assertTrue(np.allclose(out, [1, 2, 3, 4]))
+        self.assertEqual(out.shape, (2, 3, 4))
+        self.assertEqual(mock_calib.call_count, 6)
 
     def test_calibration_cached(self):
         store = Mock()
@@ -137,16 +141,23 @@ class TestCalibrator(unittest.TestCase):
         ctx.check_calibration = False
 
         result = soil_moisture_inversion_calibration(
-            ctx, store, make_preprocessed_ds()
+            ctx, store, Mock(), make_preprocessed_ds()
         )
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
 
     def test_calibration_flow(
         self,
-    ):
+    ) -> None:
         store = Mock()
-        store.exists.side_effect = [False, False, False, False, False, True] # Check existing, then check for subresults
+        store.exists.side_effect = [
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+        ]  # Check existing, then check for subresults
         store.list_ids.return_value = ["calibrated_0.zarr"]
         store.load.return_value = xr.Dataset(
             {"calibration": (("lat", "lon", "params"), np.zeros((1, 1, 4)))}
@@ -158,7 +169,7 @@ class TestCalibrator(unittest.TestCase):
         ctx.calibration.check_calibration = False
 
         result = soil_moisture_inversion_calibration(
-            ctx, store, make_preprocessed_ds()
+            ctx, store, Mock(), make_preprocessed_ds()
         )
 
         self.assertEqual(result["calibrated_data_id"], CALIBRATED_ID)
@@ -181,6 +192,7 @@ class TestCalibrator(unittest.TestCase):
         result = soil_moisture_inversion_calibration(
             ctx,
             store,
+            dask_client=Mock(),
             preprocessed_data=make_preprocessed_ds(),
         )
 

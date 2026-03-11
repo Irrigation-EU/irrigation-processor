@@ -88,9 +88,6 @@ class TestConvertMToMM(unittest.TestCase):
         self.assertEqual(converted.attrs["long_name"], "Evaporation")
 
 
-
-
-
 class TestGetExistingData(unittest.TestCase):
     def setUp(self):
         self.store = Mock()

@@ -46,7 +46,7 @@ class TestService(unittest.TestCase):
 
         result = {"a": 1, "b": 2}
         out = svc._normalize_outputs("step", meta, result)
-        
+
         # Inline values
         self.assertEqual(out["a"]["type"], "inline")
         self.assertEqual(out["a"]["value"], 1)
@@ -58,13 +58,12 @@ class TestService(unittest.TestCase):
         meta = DummyStepMeta("step", outputs=["heavy"])
 
         complex_obj = Mock()
-        
+
         out = svc._normalize_outputs("step", meta, {"heavy": complex_obj})
-        
+
         self.assertEqual(out["heavy"]["type"], "stored")
         self.assertEqual(out["heavy"]["data_id"], "heavy.zarr")
         self.storage.save.assert_called_with("heavy.zarr", complex_obj)
-
 
     def test_normalize_outputs_dict_key_mismatch_raises(self):
         svc = LocalService(self.storage, Mock())
@@ -131,7 +130,7 @@ class TestService(unittest.TestCase):
 
         self.assertEqual(args, [])
         self.assertEqual(kwargs["x"], 7)
-    
+
     def test_resolve_inputs_stored(self):
         svc = LocalService(self.storage, Mock())
         svc._state = {"s1": {"out": {"type": "stored", "data_id": "abc"}}}
@@ -185,7 +184,6 @@ class TestService(unittest.TestCase):
         self.assertEqual(result["step1"]["out"]["value"], 1)
         self.assertEqual(result["step2"]["result"]["value"], 2)
 
-
     def test_normalize_outputs_nested_inline(self):
         svc = LocalService(self.storage, Mock())
         meta = DummyStepMeta("step", outputs=["nested"])
@@ -203,7 +201,7 @@ class TestService(unittest.TestCase):
 
         ds = xr.Dataset()
         result = {"data_list": [1, ds]}
-        
+
         out = svc._normalize_outputs("step", meta, result)
 
         self.assertEqual(out["data_list"]["type"], "list")
@@ -218,13 +216,15 @@ class TestService(unittest.TestCase):
 
         ds = xr.Dataset()
         result = {"data_dict": {"metadata": "info", "data": ds}}
-        
+
         out = svc._normalize_outputs("step", meta, result)
 
         self.assertEqual(out["data_dict"]["type"], "dict")
         self.assertEqual(out["data_dict"]["items"]["metadata"]["type"], "inline")
         self.assertEqual(out["data_dict"]["items"]["data"]["type"], "stored")
-        self.assertEqual(out["data_dict"]["items"]["data"]["data_id"], "data_dict.data.zarr")
+        self.assertEqual(
+            out["data_dict"]["items"]["data"]["data_id"], "data_dict.data.zarr"
+        )
         self.storage.save.assert_called_with("data_dict.data.zarr", ds)
 
     def test_resolve_inputs_recursive(self):
@@ -233,15 +233,15 @@ class TestService(unittest.TestCase):
         # Reset side_effect from setUp to allow return_value
         self.storage.load.side_effect = None
         self.storage.load.return_value = ds
-        
+
         svc._state = {
             "s1": {
                 "out": {
                     "type": "dict",
                     "items": {
                         "a": {"type": "inline", "value": 1},
-                        "b": {"type": "stored", "data_id": "ds_id"}
-                    }
+                        "b": {"type": "stored", "data_id": "ds_id"},
+                    },
                 }
             }
         }
@@ -260,7 +260,7 @@ class TestService(unittest.TestCase):
         ds = xr.Dataset()
         # Return tuple: first is a dict of primitives (inline), second is dataset (stored)
         result = ({"param": 42}, ds)
-        
+
         out = svc._normalize_outputs("step", meta, result)
 
         self.assertEqual(out["config"]["type"], "inline")
@@ -270,21 +270,21 @@ class TestService(unittest.TestCase):
 
     def test_normalize_outputs_default_return_value(self):
         svc = LocalService(self.storage, Mock())
-        meta = DummyStepMeta("step", outputs=[]) # No outputs
+        meta = DummyStepMeta("step", outputs=[])  # No outputs
 
         out = svc._normalize_outputs("step", meta, 42)
-        
+
         self.assertEqual(out["return_value"]["type"], "inline")
         self.assertEqual(out["return_value"]["value"], 42)
 
     def test_normalize_outputs_default_return_value_dict(self):
         svc = LocalService(self.storage, Mock())
-        meta = DummyStepMeta("step", outputs=[]) # No outputs
+        meta = DummyStepMeta("step", outputs=[])  # No outputs
 
         result = {"a": 1, "b": 2}
         out = svc._normalize_outputs("step", meta, result)
         self.assertEqual(out["return_value"]["type"], "inline")
-        self.assertEqual(out["return_value"]["value"], {'a': 1, 'b': 2})
+        self.assertEqual(out["return_value"]["value"], {"a": 1, "b": 2})
 
     def test_normalize_outputs_default_return_value_stored(self):
         svc = LocalService(self.storage, Mock())
@@ -302,7 +302,7 @@ class TestService(unittest.TestCase):
     def test_run_with_dask_client(self, mock_cluster, mock_client):
         client_instance = Mock()
         mock_client.return_value = client_instance
-        
+
         # dask_kwargs need to be mocked
         mock_config = Mock()
         mock_config.dask.dask_kwargs.model_dump.return_value = {}
@@ -312,9 +312,7 @@ class TestService(unittest.TestCase):
 
         svc = LocalService(self.storage, mock_config)
 
-        step = DummyStepMeta(
-            "step1", step_fn, outputs=["out"]
-        )
+        step = DummyStepMeta("step1", step_fn, outputs=["out"])
 
         result = svc.run(
             "pipe",

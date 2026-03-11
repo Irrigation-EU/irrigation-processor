@@ -6,12 +6,19 @@
 [![isort](https://img.shields.io/badge/imports-isort-1674b1.svg)](https://pycqa.github.io/isort/)
 [![Pixi](https://img.shields.io/badge/env-pixi-5A67D8.svg)](https://pixi.sh)
 
-
 Irrigation Processor is a scientific Python package for estimating irrigation 
 water use (IWU) across **Europe** from soil moisture, meteorological variables, and land-cover 
 data using a reproducible, multi-step processing pipeline.
 
 This package was developed for the Irrigation-EU project funded by ESA.
+
+
+The map below shows the total irrigation water use estimates for 2022 derived 
+from datasets produced by the irrigation-processor pipeline after 
+post-processing.
+
+![](content/iwu2022.png)
+
 
 ## Overview
 
@@ -28,13 +35,119 @@ Each step:
 - writes its results to a storage
 - can be skipped automatically if outputs already exist
 
-## Credentials needed:
 
-### CLMS API creds
+## Irrigation Processor Pipeline
+
+The processor contains 5 steps as shown below:
+
+![](content/pipeline.png)
+
+### 1. Data Loader (`dataloader`)
+
+Loads all required input datasets, such as:
+
+- soil moisture observations (`xcube-clms data store`)
+- land-cover maps (`xcube-cds data store`)
+- meteorological data from ERA5-Land (`xcube-cds data store`) / Gleam (needs 
+to be [downloaded](https://www.gleam.eu/#downloads), 
+we only use `potential_evaporation` from gleam dataset)
+
+### 2. Preprocessing (`preprocessing`)
+
+Prepares the raw datasets by:
+
+- spatial and temporal alignment
+- variable selection and transformation
+- filtering invalid or unused variables
+- combining these datasets into one
+
+The result is a preprocessed dataset ready for modeling.
+
+### 3. Calibration (`calibration`)
+
+Estimates soil-moisture inversion parameters per grid cell.
+
+Model parameters
+
+The calibration step estimates four parameters:
+
+| Parameter | Meaning (conceptual)                  |
+| --------- |---------------------------------------|
+| `a`, `b`  | Soil hydraulic parameters             |
+| `z`       | Soil water capacity                   |
+| `RF`      | Evapotranspiration correction factor  |
+
+Calibration is:
+
+- performed independently for each pixel using `scipy.optimize`
+- NaN-safe
+
+The result is a spatial dataset of calibration parameters ready for simulation.
+
+### 4. Simulation (`simulation`)
+
+Uses the calibrated parameters to simulate irrigation water use over time.
+
+Conceptually:
+
+- soil moisture changes + meteorological variables -> irrigation signal
+- irrigation is aggregated to weekly and biweekly scales
+- thresholds are applied to remove noise and unrealistic values
+
+Outputs:
+
+- temporal IWU estimates (for time-series based analysis)
+- spatial IWU estimates (for grid-based visualization)
+
+### 5. Postprocessing (`postprocessing`)
+
+Applies final filters to the simulated irrigation estimates:
+
+- temporal masking (e.g. specific months)
+- spatial masking (e.g. irrigated areas only, we use this data: https://data.apps.fao.org/catalog/iso/f79213a0-88fd-11da-a88f-000d939bc5d8)
+
+Produces the final irrigation water use datasets in both spatial and temporal 
+chunks.
+
+
+### How calibration works (conceptual)
+
+
+    The parameters of the SM-Inversion are calibrated by optimizing the 
+    model performances in properly reproducing occurred rainfall amounts. 
+    To do this, the calibration is carried out during non-irrigation days 
+    (e.g., winter and days with rainfall occurrence during the irrigation 
+    season). 
+
+Key properties:
+
+- solved independently per pixel
+- robust to missing data
+- produces exactly four parameters per cell
+
+Diagnostic statistics (e.g. number of unique parameter sets) can optionally be logged.
+
+### How simulation works (conceptual)
+
+    Simulation uses the calibrated parameters to:
+    
+    - estimate irrigation contributions at each time step
+    - remove small or spurious signals
+    - aggregate to meaningful temporal scales
+    - clip unrealistic values
+
+This produces physically consistent irrigation estimates suitable for analysis.
+
+
+## Getting Started
+
+### Credentials needed:
+
+#### CLMS API creds
 
 To get these creds, please follow the steps [here](https://eea.github.io/clms-api-docs/authentication.html)
 
-### CDSE AWS creds
+#### CDSE AWS creds
 
 To get these creds, please follow the steps [here](https://documentation.dataspace.copernicus.eu/APIs/S3.html#generate-secrets)
 
@@ -55,7 +168,7 @@ CDSE_AWS_SECRET_ACCESS_KEY=
 CDSE_AWS_ENDPOINT_URL=
 ```
 
-## Configuration file (`config.yml`)
+### Configuration file (`config.yml`)
 
 The pipeline is configured using a YAML file called `config.yml` stored on the 
 root folder.
@@ -170,6 +283,61 @@ Individual steps support custom chunking for Xarray datasets to optimize memory 
 - `calibration`: `calibration_chunks`.
 
 
+
+### Run the pipeline
+
+The easiest way to run the pipeline is using [pixi](https://pixi.sh):
+
+```bash
+# Run with default config
+pixi run irr-proc
+
+# Run with custom config
+pixi run irr-proc --config my_config.yml
+
+# Visualize the pipeline DAG
+pixi run irr-proc --visualize
+```
+
+Alternatively, run as a Python module:
+
+```bash
+python -m irrigation_processor.main --config config.yml
+```
+
+> Note:
+> If you plan to use variables from the Gleam dataset, this pipeline currently 
+> expects the dataset to be available in your selected xcube data store. 
+> 
+> Please download the dataset from the [here](https://www.gleam.eu/#downloads) and make sure it is 
+> accessible in your configured data store before running the pipeline.
+> 
+> For e.g. if using file store, add it in the root folder of the xcube data 
+> store, similarly for S3 store, add it to the bucket with the following name
+> `gleamv4_2b.zarr`
+
+
+The pipeline will:
+
+- build the dependency graph
+- execute required steps
+- reuse stored results where available
+- write final outputs to the configured data store
+
+The pipeline produces:
+
+- calibrated soil-moisture inversion parameters
+- irrigation water use estimates (temporal & spatial)
+- postprocessed irrigation datasets ready for analysis
+
+All outputs are stored using a xcube data store.
+
+**NOTE: This would be soon released as a python package.**
+
+
+## Pipeline Framework Usage
+
+
 ### How step configuration is mapped
 
 Each top-level key in `config.yml` (except `base`) must match a 
@@ -201,7 +369,7 @@ check_calibration = context.check_calibration
 
 If a config key does not correspond to a registered step, the pipeline will raise an error.
 
-## How the pipeline is defined (`StepRegistry`)
+### How the pipeline is defined (`StepRegistry`)
 
 All pipeline steps are registered using a shared `StepRegistry`.
 
@@ -376,155 +544,6 @@ This allows the pipeline to be:
 - reproducible
 - easy to reason about
 
-## Run the pipeline
-
-The easiest way to run the pipeline is using [pixi](https://pixi.sh):
-
-```bash
-# Run with default config
-pixi run irr-proc
-
-# Run with custom config
-pixi run irr-proc --config my_config.yml
-
-# Visualize the pipeline DAG
-pixi run irr-proc --visualize
-```
-
-Alternatively, run as a Python module:
-
-```bash
-python -m irrigation_processor.main --config config.yml
-```
-
-> Note:
-> If you plan to use variables from the Gleam dataset, this pipeline currently 
-> expects the dataset to be available in your selected xcube data store. 
-> 
-> Please download the dataset from the [here](https://www.gleam.eu/#downloads) and make sure it is 
-> accessible in your configured data store before running the pipeline.
-> 
-> For e.g. if using file store, add it in the root folder of the xcube data 
-> store, similarly for S3 store, add it to the bucket with the following name
-> `gleamv4_2b.zarr`
-
-
-The pipeline will:
-
-- build the dependency graph
-- execute required steps
-- reuse stored results where available
-- write final outputs to the configured data store
-
-The pipeline produces:
-
-- calibrated soil-moisture inversion parameters
-- irrigation water use estimates (temporal & spatial)
-- postprocessed irrigation datasets ready for analysis
-
-All outputs are stored using a xcube data store.
-
-**NOTE: This would be soon released as a python package.**
-
-## Irrigation Processor Pipeline steps
-
-### 1. Data Loader (`dataloader`)
-
-Loads all required input datasets, such as:
-
-- soil moisture observations (`xcube-clms data store`)
-- land-cover maps (`xcube-cds data store`)
-- meteorological data from ERA5-Land (`xcube-cds data store`) / Gleam (needs 
-to be [downloaded](https://www.gleam.eu/#downloads), 
-we only use `potential_evaporation` from gleam dataset)
-
-### 2. Preprocessing (`preprocessing`)
-
-Prepares the raw datasets by:
-
-- spatial and temporal alignment
-- variable selection and transformation
-- filtering invalid or unused variables
-- combining these datasets into one
-
-The result is a preprocessed dataset ready for modeling.
-
-### 3. Calibration (`calibration`)
-
-Estimates soil-moisture inversion parameters per grid cell.
-
-Model parameters
-
-The calibration step estimates four parameters:
-
-| Parameter | Meaning (conceptual)                 |
-| --------- | ------------------------------------ |
-| `a`, `b`  | Nonlinear soil response coefficients |
-| `z`       | Soil water storage scaling           |
-| `RF`      | Rainfall–soil moisture coupling      |
-
-Calibration is:
-
-- performed independently for each pixel using `scipy.optimize`
-- NaN-safe
-
-The result is a spatial dataset of calibration parameters ready for simulation.
-
-### 4. Simulation (`simulation`)
-
-Uses the calibrated parameters to simulate irrigation water use over time.
-
-Conceptually:
-
-- soil moisture changes + meteorological variables -> irrigation signal
-- irrigation is aggregated to weekly and biweekly scales
-- thresholds are applied to remove noise and unrealistic values
-
-Outputs:
-
-- temporal IWU estimates (for time-series based analysis)
-- spatial IWU estimates (for grid-based visualization)
-
-### 5. Postprocessing (`postprocessing`)
-
-Applies final filters to the simulated irrigation estimates:
-
-- temporal masking (e.g. specific months)
-- spatial masking (e.g. irrigated areas only, we use this data: https://data.apps.fao.org/catalog/iso/f79213a0-88fd-11da-a88f-000d939bc5d8)
-
-Produces the final irrigation water use datasets in both spatial and temporal 
-chunks.
-
-
-## How calibration works (conceptual)
-
-
-    The parameters of the SM-Inversion are calibrated by optimizing the 
-    model performances in properly reproducing occurred rainfall amounts. 
-    To do this, the calibration is carried out during non-irrigation days 
-    (e.g., winter and days with rainfall occurrence during the irrigation 
-    season). 
-
-Key properties:
-
-- solved independently per pixel
-- robust to missing data
-- produces exactly four parameters per cell
-
-Diagnostic statistics (e.g. number of unique parameter sets) can optionally be logged.
-
-## How simulation works (conceptual)
-
-    Simulation uses the calibrated parameters to:
-    
-    - estimate irrigation contributions at each time step
-    - remove small or spurious signals
-    - aggregate to meaningful temporal scales
-    - clip unrealistic values
-
-This produces physically consistent irrigation estimates suitable for analysis.
-
-
 
 ### FAQ / Troubleshooting
 
@@ -541,6 +560,5 @@ Common causes:
 
 - temporal masking excluded those months
 - spatial mask threshold removed the area
-- irrigation did not occur
-
-Inspect postprocessing configuration.
+- irrigation did not occur -
+- inspect postprocessing configuration.
