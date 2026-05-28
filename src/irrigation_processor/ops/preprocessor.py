@@ -201,11 +201,11 @@ def _resample_and_merge(
         gleam_masked = gleam_in_gm_sm.where(lc_in_gm_sm.lc_binary)
 
         LOG.info("merging along with gleam...")
-        ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned, gleam_masked])
+        ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned, gleam_masked], join='exact')
 
     else:
         LOG.info("merging...")
-        ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned])
+        ds_combined = xr.merge([soil_moisture_masked, cds_masked_aligned], join='exact')
 
     chunked_ds = chunk_dataset(
         ds_combined,
