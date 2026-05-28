@@ -1,5 +1,8 @@
 # Changes in version 0.1.2 (in development)
 
+- Minor update in preprocessing code.
+- Added `config.yml`
+
 # Changes in version 0.1.1
 
 - Added documentation for key classes.
